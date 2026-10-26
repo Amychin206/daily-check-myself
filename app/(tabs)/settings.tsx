@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import * as auth from '../../src/auth';
 import { exportBackup, readBackup } from '../../src/backup';
+import { confirmDestructive, errorMessage, notify } from '../../src/dialogs';
 import { applyReminders, loadReminders, ReminderSettings } from '../../src/reminders';
 import { SECTIONS, SectionKey } from '../../src/sections';
 import { useStore } from '../../src/store';
@@ -12,7 +14,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <SyncCard theme={theme} />
-      <RemindersCard theme={theme} />
+      {Platform.OS !== 'web' && <RemindersCard theme={theme} />}
       <BackupCard theme={theme} />
     </ScrollView>
   );
@@ -26,7 +28,7 @@ function SyncCard({ theme }: { theme: Theme }) {
       <View style={[styles.card, { backgroundColor: theme.card }]}>
         <Text style={[styles.cardTitle, { color: theme.text }]}>多设备同步</Text>
         <Text style={{ color: theme.muted, lineHeight: 20 }}>
-          Expo Go 预览版不支持 Google 登录。安装正式打包的 APK 后即可开启同步，现在可以先用下面的备份功能。
+          {auth.authUnavailableReason}现在可以先用下面的备份功能。
         </Text>
       </View>
     );
@@ -38,13 +40,11 @@ function SyncCard({ theme }: { theme: Theme }) {
         <Text style={[styles.cardTitle, { color: theme.text }]}>多设备同步</Text>
         <Text style={{ color: theme.muted, lineHeight: 20 }}>
           用 Google 账号登录后，打卡和照片会自动同步到你的 Google Drive（app
-          专用的隐藏文件夹）。在另一台手机上用同一个账号登录即可看到全部记录。
+          专用的隐藏文件夹）。在其他手机或电脑上用同一个账号登录即可看到全部记录。
         </Text>
         <Pressable
           style={[styles.button, styles.single, { backgroundColor: theme.accent }]}
-          onPress={() =>
-            signIn().catch((err) => Alert.alert('登录失败', err instanceof Error ? err.message : String(err)))
-          }
+          onPress={() => signIn().catch((err) => notify('登录失败', errorMessage(err)))}
         >
           <Text style={styles.buttonText}>用 Google 账号登录</Text>
         </Pressable>
@@ -55,21 +55,23 @@ function SyncCard({ theme }: { theme: Theme }) {
   const detail =
     status.state === 'syncing'
       ? '正在同步…'
-      : status.state === 'error'
-        ? `同步失败：${status.error}`
-        : status.lastSyncedAt
-          ? `上次同步：${status.lastSyncedAt.toLocaleString('zh-CN')}`
-          : '尚未同步';
+      : status.state === 'needsAuth'
+        ? 'Google 授权已过期，点「立即同步」重新连接'
+        : status.state === 'error'
+          ? `同步失败：${status.error}`
+          : status.lastSyncedAt
+            ? `上次同步：${status.lastSyncedAt.toLocaleString('zh-CN')}`
+            : '尚未同步';
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card }]}>
       <Text style={[styles.cardTitle, { color: theme.text }]}>多设备同步</Text>
-      <Text style={{ color: theme.text }}>已登录：{user.user.email}</Text>
+      <Text style={{ color: theme.text }}>已登录：{user.email}</Text>
       <Text style={{ color: status.state === 'error' ? theme.danger : theme.muted, marginTop: 4 }}>{detail}</Text>
       <View style={styles.row}>
         <Pressable
           style={[styles.button, { backgroundColor: theme.accent }]}
-          onPress={syncNow}
+          onPress={() => syncNow({ interactive: true })}
           disabled={status.state === 'syncing'}
         >
           {status.state === 'syncing' ? (
@@ -80,12 +82,13 @@ function SyncCard({ theme }: { theme: Theme }) {
         </Pressable>
         <Pressable
           style={[styles.button, { backgroundColor: theme.empty }]}
-          onPress={() =>
-            Alert.alert('退出登录？', '这台手机上的记录会保留，Google Drive 里的也不会删除。', [
-              { text: '取消', style: 'cancel' },
-              { text: '退出', style: 'destructive', onPress: () => signOut() },
-            ])
-          }
+          onPress={async () => {
+            if (
+              await confirmDestructive('退出登录？', '这台设备上的记录会保留，Google Drive 里的也不会删除。', '退出')
+            ) {
+              signOut();
+            }
+          }}
         >
           <Text style={[styles.buttonText, { color: theme.text }]}>退出登录</Text>
         </Pressable>
@@ -103,7 +106,7 @@ function BackupCard({ theme }: { theme: Theme }) {
     try {
       await exportBackup(entries);
     } catch (err) {
-      Alert.alert('导出失败', err instanceof Error ? err.message : String(err));
+      notify('导出失败', errorMessage(err));
     } finally {
       setBusy(null);
     }
@@ -115,13 +118,13 @@ function BackupCard({ theme }: { theme: Theme }) {
       const incoming = await readBackup();
       if (incoming) {
         const changed = mergeEntries(incoming);
-        Alert.alert(
+        notify(
           '导入完成',
-          changed ? `更新了 ${changed} 条打卡。` : '没有需要更新的内容，这台手机上的记录已经是最新的。',
+          changed ? `更新了 ${changed} 条打卡。` : '没有需要更新的内容，这台设备上的记录已经是最新的。',
         );
       }
     } catch (err) {
-      Alert.alert('导入失败', err instanceof Error ? err.message : String(err));
+      notify('导入失败', errorMessage(err));
     } finally {
       setBusy(null);
     }
@@ -131,7 +134,7 @@ function BackupCard({ theme }: { theme: Theme }) {
     <View style={[styles.card, { backgroundColor: theme.card }]}>
       <Text style={[styles.cardTitle, { color: theme.text }]}>备份与恢复</Text>
       <Text style={{ color: theme.muted, lineHeight: 20 }}>
-        导出的备份包含所有打卡、日记和照片，可以保存到网盘或发到另一台手机。导入时会和这台手机上的记录合并，同一天同一版面以最后修改的为准。
+        导出的备份包含所有打卡、日记和照片，可以保存到网盘或发到另一台设备。导入时会和这台设备上的记录合并，同一天同一版面以最后修改的为准。
       </Text>
       <View style={styles.row}>
         <Pressable style={[styles.button, { backgroundColor: theme.accent }]} onPress={doExport} disabled={!!busy}>
@@ -164,7 +167,7 @@ function RemindersCard({ theme }: { theme: Theme }) {
     setSettings(next);
     const ok = await applyReminders(next);
     if (!ok) {
-      Alert.alert('无法发送提醒', '请在系统设置里允许本应用发送通知。');
+      notify('无法发送提醒', '请在系统设置里允许本应用发送通知。');
       const off = { ...next, [key]: { ...next[key], enabled: false } };
       setSettings(off);
       await applyReminders(off);

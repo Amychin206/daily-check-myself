@@ -5,7 +5,7 @@ import { addDays, fromDateKey, todayKey, weekdayLabel } from '../../src/dates';
 import { SECTION_BY_KEY, SECTIONS } from '../../src/sections';
 import { currentStreak, dailyCounts, indexByDate, longestStreak, sectionStats } from '../../src/stats';
 import { activeEntries, useStore } from '../../src/store';
-import { Theme, useTheme } from '../../src/theme';
+import { MAX_WIDTH, Theme, useTheme } from '../../src/theme';
 
 const WEEKS = 12;
 const PAD = 16;
@@ -14,7 +14,7 @@ export default function StatsScreen() {
   const theme = useTheme();
   const { entries } = useStore();
   const { width } = useWindowDimensions();
-  const chartWidth = width - PAD * 2 - 32;
+  const chartWidth = Math.min(width, MAX_WIDTH) - PAD * 2 - 32;
   const today = todayKey();
 
   const data = useMemo(() => {

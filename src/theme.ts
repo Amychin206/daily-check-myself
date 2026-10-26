@@ -24,6 +24,9 @@ const dark: typeof light = {
 
 export type Theme = typeof light;
 
+/** Content width cap, so the web version on a computer keeps a phone-like column. */
+export const MAX_WIDTH = 640;
+
 export function useTheme(): Theme {
   return useColorScheme() === 'dark' ? dark : light;
 }

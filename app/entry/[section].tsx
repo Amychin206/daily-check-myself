@@ -2,18 +2,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Stack } from 'expo-router/stack';
 import { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EntryPhoto } from '../../src/components/EntryPhoto';
+import { confirmDestructive, notify } from '../../src/dialogs';
 import { formatDateLabel, todayKey } from '../../src/dates';
 import { deleteLocalPhoto, persistPhoto } from '../../src/photos';
 import { isSectionKey, SECTION_BY_KEY } from '../../src/sections';
@@ -43,7 +34,7 @@ function EntryEditor({ section: key, date }: { section: keyof typeof SECTION_BY_
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('没有权限', source === 'camera' ? '请在系统设置里允许使用相机。' : '请在系统设置里允许访问相册。');
+      notify('没有权限', source === 'camera' ? '请在系统设置里允许使用相机。' : '请在系统设置里允许访问相册。');
       return;
     }
     const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, allowsEditing: true };
@@ -63,7 +54,7 @@ function EntryEditor({ section: key, date }: { section: keyof typeof SECTION_BY_
 
   function save() {
     if (!note.trim() && !photoFile) {
-      Alert.alert('还没有内容', '拍张照片或写几句日记再打卡吧。');
+      notify('还没有内容', '拍张照片或写几句日记再打卡吧。');
       return;
     }
     cleanupUnsaved(photoFile);
@@ -71,19 +62,11 @@ function EntryEditor({ section: key, date }: { section: keyof typeof SECTION_BY_
     router.back();
   }
 
-  function remove() {
-    Alert.alert('删除这条打卡？', '照片和日记都会被删除。', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: () => {
-          cleanupUnsaved(null);
-          deleteEntry(date, key);
-          router.back();
-        },
-      },
-    ]);
+  async function remove() {
+    if (!(await confirmDestructive('删除这条打卡？', '照片和日记都会被删除。', '删除'))) return;
+    cleanupUnsaved(null);
+    deleteEntry(date, key);
+    router.back();
   }
 
   return (
@@ -113,14 +96,18 @@ function EntryEditor({ section: key, date }: { section: keyof typeof SECTION_BY_
         )}
 
         <View style={styles.row}>
-          <Pressable style={[styles.button, { backgroundColor: section.color }]} onPress={() => pick('camera')}>
-            <Text style={styles.buttonText}>📷 拍照</Text>
-          </Pressable>
+          {Platform.OS !== 'web' && (
+            <Pressable style={[styles.button, { backgroundColor: section.color }]} onPress={() => pick('camera')}>
+              <Text style={styles.buttonText}>📷 拍照</Text>
+            </Pressable>
+          )}
           <Pressable
             style={[styles.button, { backgroundColor: theme.card, borderColor: section.color, borderWidth: 1 }]}
             onPress={() => pick('library')}
           >
-            <Text style={[styles.buttonText, { color: section.color }]}>🖼️ 相册</Text>
+            <Text style={[styles.buttonText, { color: section.color }]}>
+              {Platform.OS === 'web' ? '🖼️ 选择照片' : '🖼️ 相册'}
+            </Text>
           </Pressable>
         </View>
 

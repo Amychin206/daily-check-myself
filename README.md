@@ -1,6 +1,6 @@
 # 每日成长 · Daily Check Myself
 
-记录每天成长计划的 Android app。
+记录每天成长计划的 app：Android 手机安装 APK，电脑用网页版。
 
 ## 功能
 
@@ -11,7 +11,7 @@
 - **Google Drive 自动同步**：用 Google 账号登录后，记录和照片自动同步到你自己 Google Drive 里的 app 专用隐藏文件夹。在另一台手机上用同一账号登录即可。每次打开 app、每次修改后都会同步；同一天同一版面在两台手机上都改过的，以最后修改的为准
 - **手动备份**：导出一个 `.zip`（包含所有打卡、日记和照片），可以存网盘或发到别的手机再导入；导入时会和现有记录合并
 
-不登录也能正常使用，数据保存在手机上。
+不登录也能正常使用，数据保存在本机（手机或电脑浏览器）上。
 
 ## 安装到手机（GitHub 自动打包 APK）
 
@@ -25,6 +25,14 @@
 | `ANDROID_KEYSTORE_PASSWORD` | `keystore-password.txt` 的内容 |
 
 签名文件不在仓库里，请妥善保存：之后每次更新 app 都必须用同一个签名，否则无法覆盖安装，Google 登录也会失效。
+
+## 在电脑上使用（网页版）
+
+网址：**https://amychin206.github.io/daily-check-myself/**
+
+每次推送到 `main`，GitHub Actions 会自动更新网页版。第一次需要在仓库 **Settings → Pages** 里把 **Source** 设为 **GitHub Actions**（仓库需要是 Public）。
+
+网页版和手机版功能一样，只是：没有每日提醒；拍照改为从电脑选择照片；数据存在这个浏览器里，换浏览器或清除网站数据后需要靠 Google Drive 同步或备份恢复。网页版的 Google 授权每小时会过期，过期后在「我的」页面点一次「立即同步」即可继续。
 
 ## 开启 Google Drive 同步（只需设置一次，约 10 分钟）
 
@@ -44,6 +52,8 @@ Google 要求每个使用 Drive 的 app 在 Google Cloud 里登记。全部免�
    - SHA-1 证书指纹：`8E:82:1D:6E:D8:2E:84:C8:62:11:E1:47:16:4B:DF:49:80:0A:7B:47`
    - 点「创建」
 
+7. 网页版还需要再建一个客户端：「创建客户端」→ 应用类型选 **Web 应用**，在「已获授权的 JavaScript 来源」里添加 `https://amychin206.github.io`，点「创建」。把显示的「客户端 ID」填到 [`src/config.ts`](src/config.ts) 的 `GOOGLE_WEB_CLIENT_ID`（客户端 ID 不是机密，可以放在代码里）
+
 完成后，在 app 的「我的」页面点「用 Google 账号登录」即可。登录时如果看到「Google 尚未验证此应用」，点「继续」就行，这是因为这个 app 只给你自己用、没有提交 Google 审核。
 
 > 上面的 SHA-1 对应仓库外保存的签名文件。如果换了签名文件，要在第 6 步里更新指纹。
@@ -53,6 +63,7 @@ Google 要求每个使用 Drive 的 app 在 Google Cloud 里登记。全部免�
 ```bash
 npm install
 npx expo start         # 用 Expo Go 预览（Google 同步在 Expo Go 里不可用）
+npm run web            # 在浏览器里预览网页版
 npm run typecheck
 ```
 
@@ -67,8 +78,9 @@ app/                   页面（expo-router）
 src/
   store.tsx            本地数据
   sync.tsx, drive.ts   Google Drive 同步
+  auth.ts / auth.web.ts  Google 登录（手机 / 网页）
   backup.ts            导出 / 导入备份
-  photos.ts            照片存储
+  photos.ts / photos.web.ts  照片存储（手机文件 / 浏览器 IndexedDB）
   reminders.ts         每日提醒
   stats.ts             统计计算
 ```

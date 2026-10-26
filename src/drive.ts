@@ -1,32 +1,23 @@
-import { File } from 'expo-file-system';
-import { googleSigninModule } from './googleSignin';
+import { getAccessToken } from './auth';
+import { downloadPhoto, uploadPhoto } from './photos';
 
 // Minimal Google Drive client for the hidden per-app "appDataFolder": the user
 // can't see or edit these files, and the app can't see anything else in Drive.
-
-export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
 const API = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
 
 export type DriveFile = { id: string; name: string; modifiedTime: string };
 
-let token: string | null = null;
+/** Whether a token may be requested with a popup (web, inside a click). */
+let interactive = false;
 
-async function accessToken(refresh = false): Promise<string> {
-  if (!googleSigninModule) throw new Error('当前环境不支持 Google 登录');
-  const { GoogleSignin } = googleSigninModule;
-  if (refresh && token) {
-    await GoogleSignin.clearCachedAccessToken(token);
-    token = null;
-  }
-  if (!token) token = (await GoogleSignin.getTokens()).accessToken;
-  return token;
+export function setInteractive(value: boolean) {
+  interactive = value;
 }
 
-/** Forgets the cached token, e.g. after signing out. */
-export function resetToken() {
-  token = null;
+async function authHeader(refresh: boolean): Promise<Record<string, string>> {
+  return { Authorization: `Bearer ${await getAccessToken({ refresh, interactive })}` };
 }
 
 /** fetch with the Drive token, retrying once with a fresh token on 401. */
@@ -34,10 +25,7 @@ async function driveFetch(url: string, init: RequestInit = {}): Promise<Response
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, {
       ...init,
-      headers: {
-        ...(init.headers as Record<string, string>),
-        Authorization: `Bearer ${await accessToken(attempt > 0)}`,
-      },
+      headers: { ...(init.headers as Record<string, string>), ...(await authHeader(attempt > 0)) },
     });
     if (res.status === 401 && attempt === 0) continue;
     if (!res.ok) throw new Error(`Google Drive 请求失败（${res.status}）：${await res.text()}`);
@@ -86,26 +74,22 @@ export async function writeJson(name: string, data: unknown, existingId?: string
   return id;
 }
 
-export async function uploadFile(name: string, file: File, mimeType: string): Promise<void> {
-  const id = await createEmpty(name, mimeType);
+export async function uploadPhotoFile(name: string): Promise<void> {
+  const id = await createEmpty(name, 'image/jpeg');
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await file.upload(`${UPLOAD}/${id}?uploadType=media`, {
-      httpMethod: 'PATCH',
-      mimeType,
-      headers: { 'Content-Type': mimeType, Authorization: `Bearer ${await accessToken(attempt > 0)}` },
+    const status = await uploadPhoto(name, `${UPLOAD}/${id}?uploadType=media`, {
+      'Content-Type': 'image/jpeg',
+      ...(await authHeader(attempt > 0)),
     });
-    if (res.status === 401) continue;
-    if (res.status >= 300) throw new Error(`照片上传失败（${res.status}）`);
+    if (status === 401) continue;
+    if (status >= 300) throw new Error(`照片上传失败（${status}）`);
     return;
   }
   throw new Error('照片上传失败：Google 授权已失效');
 }
 
-export async function downloadFile(id: string, dest: File): Promise<void> {
-  await File.downloadFileAsync(`${API}/${id}?alt=media`, dest, {
-    headers: { Authorization: `Bearer ${await accessToken()}` },
-    idempotent: true,
-  });
+export async function downloadPhotoFile(id: string, name: string): Promise<void> {
+  await downloadPhoto(`${API}/${id}?alt=media`, await authHeader(false), name);
 }
 
 export async function deleteFile(id: string): Promise<void> {

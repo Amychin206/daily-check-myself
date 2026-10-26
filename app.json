@@ -6,7 +6,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "platforms": [
-      "android"
+      "android",
+      "web"
     ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -29,6 +30,14 @@
         }
       ],
       "expo-notifications"
-    ]
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "每日成长"
+    },
+    "experiments": {
+      "baseUrl": "/daily-check-myself"
+    }
   }
 }

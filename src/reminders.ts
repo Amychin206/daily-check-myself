@@ -31,6 +31,7 @@ export async function loadReminders(): Promise<ReminderSettings> {
 }
 
 export function configureNotifications() {
+  if (Platform.OS === 'web') return;
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
