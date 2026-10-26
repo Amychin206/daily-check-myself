@@ -25,7 +25,7 @@ export async function exportBackup(entries: Entries): Promise<void> {
   };
   zip.file('backup.json', JSON.stringify(manifest));
   const data = await zip.generateAsync({ type: 'uint8array' });
-  await shareBytes(`每日成长备份-${toDateKey(new Date())}.zip`, data, 'application/zip');
+  await shareBytes(`优我备份-${toDateKey(new Date())}.zip`, data, 'application/zip');
 }
 
 /** Lets the user pick a backup file; returns its entries (photos already restored), or null if cancelled. */
@@ -38,10 +38,10 @@ export async function readBackup(): Promise<Entry[] | null> {
 
   const zip = await JSZip.loadAsync(await readUri(picked.assets[0].uri));
   const manifestFile = zip.file('backup.json');
-  if (!manifestFile) throw new Error('这不是「每日成长」的备份文件');
+  if (!manifestFile) throw new Error('这不是「优我」的备份文件');
   const manifest = JSON.parse(await manifestFile.async('string')) as BackupFile;
   if (manifest.app !== 'daily-check-myself' || !Array.isArray(manifest.entries)) {
-    throw new Error('这不是「每日成长」的备份文件');
+    throw new Error('这不是「优我」的备份文件');
   }
 
   const entries = manifest.entries.filter((e) => isSectionKey(e.section) && typeof e.date === 'string');

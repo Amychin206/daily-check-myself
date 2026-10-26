@@ -1,4 +1,4 @@
-# 每日成长 · Daily Check Myself
+# 优我 · Better Each Day
 
 记录每天成长计划的 app：Android 手机安装 APK，电脑用网页版。
 
@@ -41,7 +41,7 @@ Google 要求每个使用 Drive 的 app 在 Google Cloud 里登记。全部免�
 1. 打开 [Google Cloud 控制台](https://console.cloud.google.com/)，左上角「选择项目」→「新建项目」，名称随意（例如 `daily-check-myself`）
 2. 打开 [Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com)，确认选中刚建的项目，点「启用」
 3. 打开 [Google Auth Platform](https://console.cloud.google.com/auth/overview)，点「开始」：
-   - 应用名称填「每日成长」，用户支持邮箱选你自己
+   - 应用名称填「优我」，用户支持邮箱选你自己
    - 受众（Audience）选 **External（外部）**
    - 联系邮箱填你自己，同意条款后创建
 4. 在 **Audience（受众）** 页面的 **Test users（测试用户）** 中，添加你要用来登录的 Google 邮箱（每台手机用的账号都要加）

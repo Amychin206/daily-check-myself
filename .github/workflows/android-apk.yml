@@ -62,5 +62,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: 每日成长 build ${{ github.run_number }}
+          name: 优我 build ${{ github.run_number }}
           files: daily-check-myself.apk

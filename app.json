@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "每日成长",
+    "name": "优我",
     "slug": "daily-check-myself",
     "scheme": "dailycheck",
     "version": "1.0.0",
@@ -34,7 +34,7 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "output": "single",
-      "name": "每日成长"
+      "name": "优我"
     },
     "experiments": {
       "baseUrl": "/daily-check-myself"
