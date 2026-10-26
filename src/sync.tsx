@@ -1,0 +1,154 @@
+import type { User } from '@react-native-google-signin/google-signin';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { deleteFile, downloadFile, DRIVE_SCOPE, listFiles, readJson, resetToken, uploadFile, writeJson } from './drive';
+import { googleSigninModule } from './googleSignin';
+import { photoFile } from './photos';
+import { isSectionKey } from './sections';
+import { Entry, useStore } from './store';
+
+// Sync model: Drive holds one entries.json (every entry, including deletions)
+// plus one file per photo. Each sync downloads it, merges it into the local
+// store (newer edit wins per day+section), then uploads the merged result.
+
+const ENTRIES_FILE = 'entries.json';
+const ORPHAN_GRACE_MS = 24 * 60 * 60 * 1000;
+
+type RemoteData = { version: 1; entries: Entry[] };
+
+export type SyncStatus = { state: 'idle' | 'syncing' | 'error'; lastSyncedAt: Date | null; error?: string };
+
+type SyncValue = {
+  /** False in Expo Go, which lacks the Google Sign-In native module. */
+  available: boolean;
+  user: User | null;
+  status: SyncStatus;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
+  syncNow: () => Promise<void>;
+};
+
+const SyncContext = createContext<SyncValue | null>(null);
+
+googleSigninModule?.GoogleSignin.configure({ scopes: [DRIVE_SCOPE] });
+
+export function SyncProvider({ children }: { children: ReactNode }) {
+  const { ready, entries, mergeEntries, snapshot } = useStore();
+  const [user, setUser] = useState<User | null>(null);
+  const [status, setStatus] = useState<SyncStatus>({ state: 'idle', lastSyncedAt: null });
+  const running = useRef(false);
+
+  useEffect(() => {
+    const GoogleSignin = googleSigninModule?.GoogleSignin;
+    if (!GoogleSignin?.hasPreviousSignIn()) return;
+    GoogleSignin.signInSilently()
+      .then((res) => {
+        if (res.type === 'success') setUser(res.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const syncNow = useCallback(async () => {
+    if (!user || running.current) return;
+    running.current = true;
+    setStatus((s) => ({ ...s, state: 'syncing', error: undefined }));
+    try {
+      const files = await listFiles();
+      const byName = new Map(files.map((f) => [f.name, f]));
+
+      // 1. Pull: fetch photos for remote entries, then merge.
+      const remoteFile = byName.get(ENTRIES_FILE);
+      if (remoteFile) {
+        const remote = await readJson<RemoteData>(remoteFile.id);
+        const incoming = (remote.entries ?? []).filter((e) => isSectionKey(e.section));
+        for (const e of incoming) {
+          if (e.deleted || !e.photoFile) continue;
+          const local = photoFile(e.photoFile);
+          const remotePhoto = byName.get(e.photoFile);
+          if (!local.exists && remotePhoto) await downloadFile(remotePhoto.id, local);
+        }
+        mergeEntries(incoming);
+      }
+
+      // 2. Push photos first, so other devices never see an entry before its photo.
+      const merged = Object.values(snapshot());
+      const referenced = new Set<string>();
+      for (const e of merged) {
+        if (e.deleted || !e.photoFile) continue;
+        referenced.add(e.photoFile);
+        const local = photoFile(e.photoFile);
+        if (!byName.has(e.photoFile) && local.exists) await uploadFile(e.photoFile, local, 'image/jpeg');
+      }
+      const data: RemoteData = { version: 1, entries: merged };
+      await writeJson(ENTRIES_FILE, data, remoteFile?.id);
+
+      // 3. Clean up photos no entry uses any more. The grace period protects a
+      // photo another device has just uploaded but not yet referenced.
+      const now = Date.now();
+      for (const f of files) {
+        if (f.name === ENTRIES_FILE || referenced.has(f.name)) continue;
+        if (now - Date.parse(f.modifiedTime) > ORPHAN_GRACE_MS) await deleteFile(f.id);
+      }
+
+      setStatus({ state: 'idle', lastSyncedAt: new Date() });
+    } catch (err) {
+      setStatus((s) => ({ ...s, state: 'error', error: err instanceof Error ? err.message : String(err) }));
+    } finally {
+      running.current = false;
+    }
+  }, [user, mergeEntries, snapshot]);
+
+  // Sync when signed in, when the app returns to the foreground, and shortly after edits.
+  useEffect(() => {
+    if (!ready || !user) return;
+    syncNow();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncNow();
+    });
+    return () => sub.remove();
+  }, [ready, user, syncNow]);
+
+  const firstEntries = useRef(true);
+  useEffect(() => {
+    if (!ready) return;
+    if (firstEntries.current) {
+      firstEntries.current = false;
+      return;
+    }
+    const t = setTimeout(syncNow, 3000);
+    return () => clearTimeout(t);
+    // syncNow is intentionally left out: only local edits should schedule a sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, ready]);
+
+  const signIn = useCallback(async () => {
+    if (!googleSigninModule) return;
+    const { GoogleSignin, isSuccessResponse, isErrorWithCode, statusCodes } = googleSigninModule;
+    try {
+      const res = await GoogleSignin.signIn();
+      if (isSuccessResponse(res)) setUser(res.data);
+    } catch (err) {
+      if (isErrorWithCode(err) && err.code === statusCodes.IN_PROGRESS) return;
+      throw err;
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await googleSigninModule?.GoogleSignin.signOut();
+    resetToken();
+    setUser(null);
+    setStatus({ state: 'idle', lastSyncedAt: null });
+  }, []);
+
+  const value = useMemo(
+    () => ({ available: !!googleSigninModule, user, status, signIn, signOut, syncNow }),
+    [user, status, signIn, signOut, syncNow],
+  );
+  return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
+}
+
+export function useSync(): SyncValue {
+  const ctx = useContext(SyncContext);
+  if (!ctx) throw new Error('useSync must be used inside SyncProvider');
+  return ctx;
+}
