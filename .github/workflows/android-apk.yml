@@ -8,6 +8,12 @@ on:
 permissions:
   contents: write
 
+# A newer push makes an older build obsolete; cancel it so an outdated APK is
+# never published after a newer one.
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
