@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EntryPhoto } from '../../src/components/EntryPhoto';
+import { SectionArt } from '../../src/components/SectionArt';
 import { addDays, formatDateLabel, todayKey } from '../../src/dates';
 import { SECTIONS } from '../../src/sections';
 import { useStore } from '../../src/store';
@@ -50,9 +51,7 @@ export default function TodayScreen() {
               {entry?.photoFile ? (
                 <EntryPhoto photoFile={entry.photoFile} style={styles.thumb} />
               ) : (
-                <View style={[styles.thumb, styles.emojiBox, { backgroundColor: s.color + '22' }]}>
-                  <Text style={styles.emoji}>{s.emoji}</Text>
-                </View>
+                <SectionArt section={s.key} style={styles.thumb} />
               )}
               <View style={styles.cardFooter}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>{s.title}</Text>
@@ -84,8 +83,6 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   card: { width: '48%', borderRadius: 14, borderWidth: 2, overflow: 'hidden' },
   thumb: { width: '100%', aspectRatio: 4 / 3 },
-  emojiBox: { alignItems: 'center', justifyContent: 'center' },
-  emoji: { fontSize: 40 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10 },
   cardTitle: { fontSize: 16, fontWeight: '700' },
   note: { paddingHorizontal: 10, paddingBottom: 10, fontSize: 13 },

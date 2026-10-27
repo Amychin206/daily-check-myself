@@ -4,6 +4,7 @@ import { Stack } from 'expo-router/stack';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EntryPhoto } from '../../src/components/EntryPhoto';
+import { SectionArt } from '../../src/components/SectionArt';
 import { confirmDestructive, notify } from '../../src/dialogs';
 import { formatDateLabel, todayKey } from '../../src/dates';
 import { deleteLocalPhoto, persistPhoto } from '../../src/photos';
@@ -83,15 +84,11 @@ function EntryEditor({ section: key, date }: { section: keyof typeof SECTION_BY_
             </Pressable>
           </View>
         ) : (
-          <View
-            style={[
-              styles.photo,
-              styles.placeholder,
-              { backgroundColor: section.color + '18', borderColor: section.color },
-            ]}
-          >
-            <Text style={{ fontSize: 48 }}>{section.emoji}</Text>
-            <Text style={{ color: theme.muted, marginTop: 8 }}>拍张照片记录一下</Text>
+          <View>
+            <SectionArt section={key} style={styles.photo} />
+            <View style={styles.hint}>
+              <Text style={styles.hintText}>拍张照片记录一下</Text>
+            </View>
           </View>
         )}
 
@@ -139,7 +136,16 @@ const styles = StyleSheet.create({
   container: { padding: 16, paddingBottom: 48 },
   date: { marginBottom: 12, fontSize: 14 },
   photo: { width: '100%', aspectRatio: 4 / 3, borderRadius: 14 },
-  placeholder: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed' },
+  hint: {
+    position: 'absolute',
+    bottom: 12,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  hintText: { color: '#fff', fontSize: 13 },
   removePhoto: {
     position: 'absolute',
     top: 10,
