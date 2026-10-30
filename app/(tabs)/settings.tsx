@@ -1,8 +1,19 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import * as auth from '../../src/auth';
 import { exportBackup, readBackup } from '../../src/backup';
 import { confirmDestructive, errorMessage, notify } from '../../src/dialogs';
+import { DEFAULT_MODEL, GrokSettings, loadGrokSettings, saveGrokSettings } from '../../src/grok';
 import { applyReminders, loadReminders, ReminderSettings } from '../../src/reminders';
 import { SECTIONS, SectionKey } from '../../src/sections';
 import { useGrowth } from '../../src/growthStore';
@@ -16,6 +27,7 @@ export default function SettingsScreen() {
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <SyncCard theme={theme} />
       {Platform.OS !== 'web' && <RemindersCard theme={theme} />}
+      <GrokCard theme={theme} />
       <BackupCard theme={theme} />
     </ScrollView>
   );
@@ -94,6 +106,84 @@ function SyncCard({ theme }: { theme: Theme }) {
           <Text style={[styles.buttonText, { color: theme.text }]}>退出登录</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+function GrokCard({ theme }: { theme: Theme }) {
+  const [saved, setSaved] = useState<GrokSettings | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState('');
+
+  useEffect(() => {
+    loadGrokSettings().then((s) => {
+      setSaved(s);
+      setModel(s.model);
+    });
+  }, []);
+
+  if (!saved) return null;
+
+  async function save(next: GrokSettings) {
+    await saveGrokSettings(next);
+    setSaved(next);
+    setApiKey('');
+  }
+
+  const inputStyle = [styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }];
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card }]}>
+      <Text style={[styles.cardTitle, { color: theme.text }]}>Grok</Text>
+      <Text style={{ color: theme.muted, lineHeight: 20 }}>
+        填入你在 console.x.ai 创建的 API Key，就能在「Grok」页和它聊你的蓝图、反思和打卡。Key
+        只保存在这台设备上，不会同步到 Google Drive，也不会写进备份；聊天时你最近 7 天的记录会发送给 xAI。
+      </Text>
+      {saved.apiKey ? (
+        <Text style={{ color: theme.text, marginTop: 12 }}>已连接：xai-…{saved.apiKey.slice(-4)}</Text>
+      ) : (
+        <TextInput
+          style={inputStyle}
+          value={apiKey}
+          onChangeText={setApiKey}
+          placeholder="xai-…"
+          placeholderTextColor={theme.muted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+        />
+      )}
+      <Text style={{ color: theme.muted, fontSize: 12, marginTop: 12 }}>模型</Text>
+      <TextInput
+        style={inputStyle}
+        value={model}
+        onChangeText={setModel}
+        onBlur={() => model.trim() !== saved.model && save({ ...saved, model: model.trim() || DEFAULT_MODEL })}
+        placeholder={DEFAULT_MODEL}
+        placeholderTextColor={theme.muted}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      {saved.apiKey ? (
+        <Pressable
+          style={[styles.button, styles.single, { backgroundColor: theme.empty }]}
+          onPress={async () => {
+            if (await confirmDestructive('断开 Grok？', '会从这台设备删除 API Key。', '断开')) {
+              save({ ...saved, apiKey: '' });
+            }
+          }}
+        >
+          <Text style={[styles.buttonText, { color: theme.text }]}>断开</Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          style={[styles.button, styles.single, { backgroundColor: theme.accent, opacity: apiKey.trim() ? 1 : 0.5 }]}
+          disabled={!apiKey.trim()}
+          onPress={() => save({ apiKey: apiKey.trim(), model: model.trim() || DEFAULT_MODEL })}
+        >
+          <Text style={styles.buttonText}>连接 Grok</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -221,6 +311,14 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10, marginTop: 12 },
   button: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
   single: { flex: 0, marginTop: 12 },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    marginTop: 6,
+  },
   buttonText: { color: '#fff', fontWeight: '600' },
   reminderRow: {
     flexDirection: 'row',
