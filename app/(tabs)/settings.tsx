@@ -127,7 +127,6 @@ function GrokCard({ theme }: { theme: Theme }) {
   async function save(next: GrokSettings) {
     await saveGrokSettings(next);
     setSaved(next);
-    setApiKey('');
   }
 
   const inputStyle = [styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }];
@@ -179,7 +178,10 @@ function GrokCard({ theme }: { theme: Theme }) {
         <Pressable
           style={[styles.button, styles.single, { backgroundColor: theme.accent, opacity: apiKey.trim() ? 1 : 0.5 }]}
           disabled={!apiKey.trim()}
-          onPress={() => save({ apiKey: apiKey.trim(), model: model.trim() || DEFAULT_MODEL })}
+          onPress={async () => {
+            await save({ apiKey: apiKey.trim(), model: model.trim() || DEFAULT_MODEL });
+            setApiKey('');
+          }}
         >
           <Text style={styles.buttonText}>连接 Grok</Text>
         </Pressable>
