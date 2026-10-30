@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { GrowthArt, GrowthArtKind } from '../../src/components/GrowthArt';
 import { addDays, formatDateLabel, todayKey } from '../../src/dates';
 import { notify } from '../../src/dialogs';
 import {
@@ -91,16 +92,26 @@ function Card({
   theme,
   title,
   hint,
+  art,
   children,
 }: {
   theme: Theme;
   title?: string;
   hint?: string;
-  children: React.ReactNode;
+  /** A banner illustration across the top of the card, with the title on it. */
+  art?: GrowthArtKind;
+  children?: React.ReactNode;
 }) {
   return (
     <View style={[styles.card, { backgroundColor: theme.card }]}>
-      {title ? <Text style={[styles.cardTitle, { color: theme.text }]}>{title}</Text> : null}
+      {art ? (
+        <View style={styles.banner}>
+          <GrowthArt kind={art} style={StyleSheet.absoluteFill} />
+          {title ? <Text style={styles.bannerTitle}>{title}</Text> : null}
+        </View>
+      ) : title ? (
+        <Text style={[styles.cardTitle, { color: theme.text }]}>{title}</Text>
+      ) : null}
       {hint ? <Text style={[styles.hint, { color: theme.muted }]}>{hint}</Text> : null}
       {children}
     </View>
@@ -145,8 +156,7 @@ function TodayView({ theme, date, onOpenBoard }: { theme: Theme; date: string; o
 
   return (
     <>
-      <Card theme={theme}>
-        <Text style={[styles.kicker, { color: theme.muted }]}>早上 · 先看清方向</Text>
+      <Card theme={theme} art="morning" title="早上 · 先看清方向">
         <View style={styles.lens}>
           <Lens theme={theme} colors={ANTI} label="我绝不再变成" text={bp?.anti} onEmpty={onOpenBoard} />
           <Lens theme={theme} colors={VISION} label="我正在打造" text={bp?.vision} onEmpty={onOpenBoard} />
@@ -158,7 +168,7 @@ function TodayView({ theme, date, onOpenBoard }: { theme: Theme; date: string; o
         ) : null}
       </Card>
 
-      <Card theme={theme} title="今天的 2～3 件事" hint="「那个我想成为的人」今天理所当然会做的事。">
+      <Card theme={theme} art="levers" title="今天的 2～3 件事" hint="理想中的我，今天自然会做的事。">
         {day.levers.map((text, i) => (
           <View key={i} style={styles.lever}>
             <Pressable
@@ -191,7 +201,7 @@ function TodayView({ theme, date, onOpenBoard }: { theme: Theme; date: string; o
         ))}
       </Card>
 
-      <Card theme={theme} title="白天 · 打断自动驾驶" hint="到点就停下来，写一两句就好。">
+      <Card theme={theme} art="day" title="白天 · 打断自动驾驶" hint="到点停一下，写一句就好。">
         {Platform.OS !== 'web' && <GrowthReminderSwitch theme={theme} />}
         {CHECKS.map((c, i) => (
           <View key={c.key} style={[styles.question, i > 0 && { borderTopColor: theme.border, borderTopWidth: 1 }]}>
@@ -209,7 +219,7 @@ function TodayView({ theme, date, onOpenBoard }: { theme: Theme; date: string; o
         ))}
       </Card>
 
-      <Card theme={theme} title="今日自检" hint="睡前给自己打分，1 最低，5 最高。">
+      <Card theme={theme} art="score" title="今日自检" hint="睡前打个分，1 最低，5 最高。">
         {SCORES.map((s) => (
           <View key={s.key} style={styles.scoreRow}>
             <Text style={[styles.scoreLabel, { color: theme.text }]}>{s.label}</Text>
@@ -234,7 +244,7 @@ function TodayView({ theme, date, onOpenBoard }: { theme: Theme; date: string; o
         ))}
       </Card>
 
-      <Card theme={theme} title="晚上 · 整合">
+      <Card theme={theme} art="evening" title="晚上 · 整合">
         {EVENING.map((c, i) => (
           <View key={c.key} style={[styles.question, i > 0 && { borderTopColor: theme.border, borderTopWidth: 1 }]}>
             <Text style={[styles.q, { color: theme.text, marginBottom: 8 }]}>{c.q}</Text>
@@ -279,7 +289,7 @@ function GrowthReminderSwitch({ theme }: { theme: Theme }) {
   if (on === null) return null;
   return (
     <View style={[styles.reminderRow, { backgroundColor: theme.bg }]}>
-      <Text style={{ color: theme.text, flex: 1 }}>到点提醒我（11:00、13:30、17:00、19:30）</Text>
+      <Text style={{ color: theme.text, flex: 1 }}>到点提醒我（早上 8:00、白天 4 次、睡前 21:30）</Text>
       <Switch
         value={on}
         onValueChange={async (next) => {
@@ -302,7 +312,7 @@ function BoardView({ theme }: { theme: Theme }) {
 
   return (
     <>
-      <Card theme={theme} title="人生游戏蓝图" hint="写一次，之后每月回看调整。前两项会出现在每天「今天」页的顶部。">
+      <Card theme={theme} art="board" title="人生游戏蓝图" hint="写一次，每月回看。前两项会显示在「今天」页顶部。">
         {BOARD.map((s) => (
           <View key={s.key} style={styles.slot}>
             <Text style={[styles.kicker, { color: theme.text }]}>{s.name}</Text>
@@ -316,11 +326,7 @@ function BoardView({ theme }: { theme: Theme }) {
           </View>
         ))}
       </Card>
-      <Card
-        theme={theme}
-        title="一日重启 · 深度挖掘题"
-        hint="第一次用，留出半天到一天，按顺序写完。写完再回来填上面的蓝图。"
-      >
+      <Card theme={theme} art="deep" title="一日重启 · 深度挖掘" hint="第一次用，留半天按顺序写完，再回来填蓝图。">
         {DEEP.map((g, gi) => (
           <View key={g.group} style={[styles.group, gi > 0 && { borderTopColor: theme.border, borderTopWidth: 1 }]}>
             <Pressable onPress={() => setOpen(open === gi ? null : gi)} style={styles.groupHead}>
@@ -430,9 +436,11 @@ function Rich({ text, color }: { text: string; color: string }) {
 function ReadView({ theme }: { theme: Theme }) {
   return (
     <>
-      <Text style={[styles.kicker, { color: theme.muted, marginBottom: 10 }]}>
-        DAN KOE · HOW TO FIX YOUR ENTIRE LIFE IN 1 DAY · 中文精读
-      </Text>
+      <Card theme={theme} art="read" title="一天重启人生 · 精读">
+        <Text style={[styles.kicker, { color: theme.muted, marginBottom: 0 }]}>
+          DAN KOE · HOW TO FIX YOUR ENTIRE LIFE IN 1 DAY
+        </Text>
+      </Card>
       {READING.map((block) => (
         <Card key={block.title} theme={theme} title={block.title}>
           {block.body.map((p, i) => (
@@ -465,7 +473,26 @@ const styles = StyleSheet.create({
   streak: { color: '#C08A00', fontWeight: '700', fontSize: 13 },
   segment: { flexDirection: 'row', borderRadius: 10, padding: 3, marginBottom: 14 },
   segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8 },
-  card: { borderRadius: 14, padding: 16, marginBottom: 12 },
+  card: { borderRadius: 14, padding: 16, marginBottom: 14, overflow: 'hidden' },
+  banner: {
+    height: 124,
+    marginTop: -16,
+    marginHorizontal: -16,
+    marginBottom: 12,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    padding: 14,
+  },
+  bannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
   cardTitle: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
   hint: { fontSize: 13, marginBottom: 10, lineHeight: 19 },
   kicker: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6 },

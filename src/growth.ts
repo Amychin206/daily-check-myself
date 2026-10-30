@@ -30,11 +30,39 @@ export type GrowthDay = {
 
 export type GrowthData = { blueprint: Blueprint | null; days: Record<string, GrowthDay> };
 
+/** Daytime check-ins; `short` is the brief line used in the reminder notification. */
 export const CHECKS = [
-  { key: 'c1', time: '11:00', hour: 11, minute: 0, q: '我现在做的事，是在逃避什么？' },
-  { key: 'c2', time: '13:30', hour: 13, minute: 30, q: '如果过去两小时被录下来，别人会觉得我想要什么样的人生？' },
-  { key: 'c3', time: '17:00', hour: 17, minute: 0, q: '有什么我假装不重要，其实最重要的事？' },
-  { key: 'c4', time: '19:30', hour: 19, minute: 30, q: '今天哪件事是为了「保护旧身份」而做，不是因为真心想做？' },
+  { key: 'c1', time: '11:00', hour: 11, minute: 0, q: '我现在做的事，是在逃避什么？', short: '我在逃避什么？' },
+  {
+    key: 'c2',
+    time: '13:30',
+    hour: 13,
+    minute: 30,
+    q: '如果过去两小时被录下来，别人会觉得我想要什么样的人生？',
+    short: '这两小时，像我想要的人生吗？',
+  },
+  {
+    key: 'c3',
+    time: '17:00',
+    hour: 17,
+    minute: 0,
+    q: '有什么我假装不重要，其实最重要的事？',
+    short: '最重要的事做了吗？',
+  },
+  {
+    key: 'c4',
+    time: '19:30',
+    hour: 19,
+    minute: 30,
+    q: '今天哪件事是为了「保护旧身份」而做，不是因为真心想做？',
+    short: '真心想做，还是在保护旧身份？',
+  },
+];
+
+/** Brief reminders bracketing the day: look at the vision, then score and reflect. */
+export const DAY_REMINDERS = [
+  { hour: 8, minute: 0, title: '☀️ 早安', body: '看一眼愿景，定下今天 3 件事' },
+  { hour: 21, minute: 30, title: '🌙 睡前 3 分钟', body: '打个分，写下今天的发现' },
 ];
 
 export const EVENING = [

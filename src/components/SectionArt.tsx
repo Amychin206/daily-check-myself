@@ -76,7 +76,7 @@ type AnimProps = {
   fade?: [number, number];
 };
 
-function Anim({
+export function Anim({
   children,
   period,
   phase = 0,
@@ -103,7 +103,7 @@ function Anim({
 }
 
 /** A sparkle that twinkles: grows, shrinks and fades in place. */
-function Twinkle(props: SparkleProps & { period?: number; phase?: number }) {
+export function Twinkle(props: SparkleProps & { period?: number; phase?: number }) {
   const { period = 2.4, phase = 0, ...sparkle } = props;
   return (
     <Anim period={period} phase={phase} scale={0.3} origin={[sparkle.x, sparkle.y]} fade={[0.35, 1]}>
@@ -112,7 +112,7 @@ function Twinkle(props: SparkleProps & { period?: number; phase?: number }) {
   );
 }
 
-function Sparkle({ x, y, r, color = '#FFFFFF', opacity = 0.9 }: SparkleProps) {
+export function Sparkle({ x, y, r, color = '#FFFFFF', opacity = 0.9 }: SparkleProps) {
   const s = r * 0.28;
   return (
     <Path

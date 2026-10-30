@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { CHECKS } from './growth';
+import { CHECKS, DAY_REMINDERS } from './growth';
 import { SECTION_BY_KEY, SectionKey, SECTIONS } from './sections';
 
 // Reminders are local notifications, so they are configured per device.
@@ -32,7 +32,7 @@ export async function loadReminders(): Promise<ReminderSettings> {
   return { ...defaultReminders(), ...(raw ? JSON.parse(raw) : {}) };
 }
 
-/** Whether the 成长 tab's four daytime check-ins send a reminder. */
+/** Whether the 成长 tab sends its reminders (morning, four check-ins, bedtime). */
 export async function loadGrowthReminders(): Promise<boolean> {
   return (await AsyncStorage.getItem(GROWTH_KEY)) === 'on';
 }
@@ -94,15 +94,14 @@ export async function applyReminders(settings: ReminderSettings): Promise<boolea
     });
   }
   if (growthOn) {
-    for (const check of CHECKS) {
+    const growthReminders = [
+      ...DAY_REMINDERS,
+      ...CHECKS.map((c) => ({ hour: c.hour, minute: c.minute, title: '🌱 停一下', body: c.short })),
+    ];
+    for (const { hour, minute, title, body } of growthReminders) {
       await Notifications.scheduleNotificationAsync({
-        content: { title: `🌱 ${check.time} 停一下`, body: check.q, data: { growth: true } },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: check.hour,
-          minute: check.minute,
-          channelId: 'reminders',
-        },
+        content: { title, body, data: { growth: true } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, channelId: 'reminders' },
       });
     }
   }
