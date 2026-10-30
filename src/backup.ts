@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import JSZip from 'jszip';
 import { toDateKey } from './dates';
+import type { GrowthData } from './growth';
 import { readUri, shareBytes } from './files';
 import { hasPhoto, readPhoto, writePhoto } from './photos';
 import { isSectionKey } from './sections';
@@ -8,9 +9,18 @@ import type { Entries, Entry } from './store';
 
 // A backup is a .zip holding backup.json plus every referenced photo under photos/.
 
-type BackupFile = { app: 'daily-check-myself'; version: 1; exportedAt: string; entries: Entry[] };
+export type Backup = { entries: Entry[]; growth: GrowthData | null };
 
-export async function exportBackup(entries: Entries): Promise<void> {
+type BackupFile = {
+  app: 'daily-check-myself';
+  version: 1;
+  exportedAt: string;
+  entries: Entry[];
+  /** The 成长 tab's data; missing in backups made before it existed. */
+  growth?: GrowthData;
+};
+
+export async function exportBackup(entries: Entries, growth: GrowthData): Promise<void> {
   const zip = new JSZip();
   const list = Object.values(entries);
   for (const e of list) {
@@ -22,14 +32,15 @@ export async function exportBackup(entries: Entries): Promise<void> {
     version: 1,
     exportedAt: new Date().toISOString(),
     entries: list,
+    growth,
   };
   zip.file('backup.json', JSON.stringify(manifest));
   const data = await zip.generateAsync({ type: 'uint8array' });
   await shareBytes(`优我备份-${toDateKey(new Date())}.zip`, data, 'application/zip');
 }
 
-/** Lets the user pick a backup file; returns its entries (photos already restored), or null if cancelled. */
-export async function readBackup(): Promise<Entry[] | null> {
+/** Lets the user pick a backup file; returns its contents (photos already restored), or null if cancelled. */
+export async function readBackup(): Promise<Backup | null> {
   const picked = await DocumentPicker.getDocumentAsync({
     type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
     copyToCacheDirectory: true,
@@ -51,5 +62,5 @@ export async function readBackup(): Promise<Entry[] | null> {
     if (!inZip || (await hasPhoto(e.photoFile))) continue;
     await writePhoto(e.photoFile, await inZip.async('uint8array'));
   }
-  return entries;
+  return { entries, growth: manifest.growth ?? null };
 }

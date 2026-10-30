@@ -18,6 +18,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: '今日打卡', tabBarLabel: '打卡', tabBarIcon: icon('✅') }} />
+      <Tabs.Screen name="growth" options={{ title: '成长', tabBarIcon: icon('🌱') }} />
       <Tabs.Screen name="stats" options={{ title: '统计', tabBarIcon: icon('📊') }} />
       <Tabs.Screen name="settings" options={{ title: '我的', tabBarIcon: icon('⚙️') }} />
     </Tabs>

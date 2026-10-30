@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { CHECKS } from './growth';
 import { SECTION_BY_KEY, SectionKey, SECTIONS } from './sections';
 
 // Reminders are local notifications, so they are configured per device.
@@ -9,6 +10,7 @@ export type Reminder = { enabled: boolean; hour: number; minute: number };
 export type ReminderSettings = Record<SectionKey, Reminder>;
 
 const KEY = 'reminders.v1';
+const GROWTH_KEY = 'growthReminders.v1';
 
 const DEFAULT_TIMES: Record<SectionKey, [number, number]> = {
   study: [9, 0],
@@ -28,6 +30,17 @@ export function defaultReminders(): ReminderSettings {
 export async function loadReminders(): Promise<ReminderSettings> {
   const raw = await AsyncStorage.getItem(KEY);
   return { ...defaultReminders(), ...(raw ? JSON.parse(raw) : {}) };
+}
+
+/** Whether the 成长 tab's four daytime check-ins send a reminder. */
+export async function loadGrowthReminders(): Promise<boolean> {
+  return (await AsyncStorage.getItem(GROWTH_KEY)) === 'on';
+}
+
+/** Turns the 成长 check-in reminders on or off. Returns false if permission was denied. */
+export async function setGrowthReminders(enabled: boolean): Promise<boolean> {
+  await AsyncStorage.setItem(GROWTH_KEY, enabled ? 'on' : 'off');
+  return applyReminders(await loadReminders());
 }
 
 export function configureNotifications() {
@@ -60,7 +73,8 @@ export async function applyReminders(settings: ReminderSettings): Promise<boolea
   await AsyncStorage.setItem(KEY, JSON.stringify(settings));
   await Notifications.cancelAllScheduledNotificationsAsync();
   const active = SECTIONS.filter(({ key }) => settings[key].enabled);
-  if (active.length === 0) return true;
+  const growthOn = await loadGrowthReminders();
+  if (active.length === 0 && !growthOn) return true;
   if (!(await ensurePermission())) return false;
   for (const { key } of active) {
     const { hour, minute } = settings[key];
@@ -78,6 +92,19 @@ export async function applyReminders(settings: ReminderSettings): Promise<boolea
         channelId: 'reminders',
       },
     });
+  }
+  if (growthOn) {
+    for (const check of CHECKS) {
+      await Notifications.scheduleNotificationAsync({
+        content: { title: `🌱 ${check.time} 停一下`, body: check.q, data: { growth: true } },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: check.hour,
+          minute: check.minute,
+          channelId: 'reminders',
+        },
+      });
+    }
   }
   return true;
 }

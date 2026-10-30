@@ -7,6 +7,7 @@
 - **6 个版面**：学习、读书、运动、健康饮食、休息、冥想
 - **拍照打卡 + 日记**：每个版面每天一条，可以拍照或从相册选，再写几句日记；可以翻到以前的日子查看或补记
 - **每日提醒**：每个版面单独开关、单独设置时间；点通知直接打开当天该版面的打卡页
+- **成长**：根据 Dan Koe《How to fix your entire life in 1 day》设计的每日练习。「蓝图」页写下反愿景、愿景、1 年目标、1 个月项目、每日杠杆和约束条件，以及一日重启的深度挖掘题；「今天」页每天看一次方向、列 2～3 件事、在 11:00 / 13:30 / 17:00 / 19:30 自问（手机可开提醒）、睡前自评和晚上反思；「记录」页回看过往；「精读」页是文章的中文精读
 - **统计图表**：连续打卡天数、最长连续、累计次数；最近 7 天柱状图；最近 12 周热力图；各版面近 30 天完成率
 - **Google Drive 自动同步**：用 Google 账号登录后，记录和照片自动同步到你自己 Google Drive 里的 app 专用隐藏文件夹。在另一台手机上用同一账号登录即可。每次打开 app、每次修改后都会同步；同一天同一版面在两台手机上都改过的，以最后修改的为准
 - **手动备份**：导出一个 `.zip`（包含所有打卡、日记和照片），可以存网盘或发到别的手机再导入；导入时会和现有记录合并
@@ -19,10 +20,10 @@
 
 打包需要两个仓库密钥（只需设置一次）：在仓库的 **Settings → Secrets and variables → Actions → New repository secret** 中添加：
 
-| 名称 | 内容 |
-| --- | --- |
-| `ANDROID_KEYSTORE_BASE64` | 签名文件 `release.keystore.base64.txt` 的全部内容 |
-| `ANDROID_KEYSTORE_PASSWORD` | `keystore-password.txt` 的内容 |
+| 名称                        | 内容                                              |
+| --------------------------- | ------------------------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`   | 签名文件 `release.keystore.base64.txt` 的全部内容 |
+| `ANDROID_KEYSTORE_PASSWORD` | `keystore-password.txt` 的内容                    |
 
 签名文件不在仓库里，请妥善保存：之后每次更新 app 都必须用同一个签名，否则无法覆盖安装，Google 登录也会失效。
 
@@ -72,11 +73,13 @@ npm run typecheck
 ```
 app/                   页面（expo-router）
   (tabs)/index.tsx     今日打卡
+  (tabs)/growth.tsx    成长（蓝图、每日反思、精读）
   (tabs)/stats.tsx     统计
   (tabs)/settings.tsx  同步、提醒、备份
   entry/[section].tsx  单个版面的拍照和日记
 src/
   store.tsx            本地数据
+  growth.ts, growthStore.tsx  成长页的题目和数据
   sync.tsx, drive.ts   Google Drive 同步
   auth.ts / auth.web.ts  Google 登录（手机 / 网页）
   backup.ts            导出 / 导入备份

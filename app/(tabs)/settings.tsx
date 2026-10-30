@@ -5,6 +5,7 @@ import { exportBackup, readBackup } from '../../src/backup';
 import { confirmDestructive, errorMessage, notify } from '../../src/dialogs';
 import { applyReminders, loadReminders, ReminderSettings } from '../../src/reminders';
 import { SECTIONS, SectionKey } from '../../src/sections';
+import { useGrowth } from '../../src/growthStore';
 import { useStore } from '../../src/store';
 import { useSync } from '../../src/sync';
 import { Theme, useTheme } from '../../src/theme';
@@ -99,12 +100,13 @@ function SyncCard({ theme }: { theme: Theme }) {
 
 function BackupCard({ theme }: { theme: Theme }) {
   const { entries, mergeEntries } = useStore();
+  const growth = useGrowth();
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
 
   async function doExport() {
     setBusy('export');
     try {
-      await exportBackup(entries);
+      await exportBackup(entries, growth.snapshot());
     } catch (err) {
       notify('导出失败', errorMessage(err));
     } finally {
@@ -115,12 +117,14 @@ function BackupCard({ theme }: { theme: Theme }) {
   async function doImport() {
     setBusy('import');
     try {
-      const incoming = await readBackup();
-      if (incoming) {
-        const changed = mergeEntries(incoming);
+      const backup = await readBackup();
+      if (backup) {
+        const changed = mergeEntries(backup.entries);
+        const growthChanged = backup.growth ? growth.mergeGrowth(backup.growth) : 0;
+        const parts = [changed && `${changed} 条打卡`, growthChanged && `${growthChanged} 条成长记录`].filter(Boolean);
         notify(
           '导入完成',
-          changed ? `更新了 ${changed} 条打卡。` : '没有需要更新的内容，这台设备上的记录已经是最新的。',
+          parts.length ? `更新了 ${parts.join('和')}。` : '没有需要更新的内容，这台设备上的记录已经是最新的。',
         );
       }
     } catch (err) {
@@ -134,7 +138,7 @@ function BackupCard({ theme }: { theme: Theme }) {
     <View style={[styles.card, { backgroundColor: theme.card }]}>
       <Text style={[styles.cardTitle, { color: theme.text }]}>备份与恢复</Text>
       <Text style={{ color: theme.muted, lineHeight: 20 }}>
-        导出的备份包含所有打卡、日记和照片，可以保存到网盘或发到另一台设备。导入时会和这台设备上的记录合并，同一天同一版面以最后修改的为准。
+        导出的备份包含所有打卡、日记、照片和成长记录，可以保存到网盘或发到另一台设备。导入时会和这台设备上的记录合并，同一天同一版面以最后修改的为准。
       </Text>
       <View style={styles.row}>
         <Pressable style={[styles.button, { backgroundColor: theme.accent }]} onPress={doExport} disabled={!!busy}>

@@ -10,6 +10,8 @@ import {
   uploadPhotoFile,
   writeJson,
 } from './drive';
+import { GrowthData } from './growth';
+import { useGrowth } from './growthStore';
 import { hasPhoto } from './photos';
 import { isSectionKey } from './sections';
 import { Entry, useStore } from './store';
@@ -17,8 +19,10 @@ import { Entry, useStore } from './store';
 // Sync model: Drive holds one entries.json (every entry, including deletions)
 // plus one file per photo. Each sync downloads it, merges it into the local
 // store (newer edit wins per day+section), then uploads the merged result.
+// The 成长 tab's data travels the same way in growth.json.
 
 const ENTRIES_FILE = 'entries.json';
+const GROWTH_FILE = 'growth.json';
 const ORPHAN_GRACE_MS = 24 * 60 * 60 * 1000;
 
 type RemoteData = { version: 1; entries: Entry[] };
@@ -44,7 +48,12 @@ type SyncValue = {
 const SyncContext = createContext<SyncValue | null>(null);
 
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const { ready, entries, mergeEntries, snapshot } = useStore();
+  const store = useStore();
+  const { entries, mergeEntries, snapshot } = store;
+  const growth = useGrowth();
+  const { mergeGrowth, snapshot: growthSnapshot } = growth;
+  // Wait for both local stores to load, so a sync never merges into data that's about to be replaced.
+  const ready = store.ready && growth.ready;
   const [user, setUser] = useState<auth.GoogleUser | null>(null);
   const [status, setStatus] = useState<SyncStatus>({ state: 'idle', lastSyncedAt: null });
   const running = useRef(false);
@@ -79,6 +88,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           }
           mergeEntries(incoming);
         }
+        const growthFile = byName.get(GROWTH_FILE);
+        if (growthFile) mergeGrowth(await readJson<GrowthData>(growthFile.id));
 
         // 2. Push photos first, so other devices never see an entry before its photo.
         const merged = Object.values(snapshot());
@@ -90,12 +101,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }
         const data: RemoteData = { version: 1, entries: merged };
         await writeJson(ENTRIES_FILE, data, remoteFile?.id);
+        await writeJson(GROWTH_FILE, growthSnapshot(), growthFile?.id);
 
         // 3. Clean up photos no entry uses any more. The grace period protects a
         // photo another device has just uploaded but not yet referenced.
         const now = Date.now();
         for (const f of files) {
-          if (f.name === ENTRIES_FILE || referenced.has(f.name)) continue;
+          if (f.name === ENTRIES_FILE || f.name === GROWTH_FILE || referenced.has(f.name)) continue;
           if (now - Date.parse(f.modifiedTime) > ORPHAN_GRACE_MS) await deleteFile(f.id);
         }
 
@@ -108,7 +120,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         setInteractive(false);
       }
     },
-    [user, mergeEntries, snapshot],
+    [user, mergeEntries, snapshot, mergeGrowth, growthSnapshot],
   );
 
   // Sync when signed in, when the app returns to the foreground, and shortly after edits.
@@ -132,7 +144,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
     // syncNow is intentionally left out: only local edits should schedule a sync.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, ready]);
+  }, [entries, growth.data, ready]);
 
   const signIn = useCallback(async () => {
     const signedIn = await auth.signIn();
