@@ -13,20 +13,20 @@ import {
   View,
 } from 'react-native';
 import { confirmDestructive, errorMessage } from '../../src/dialogs';
-import { askGrok, buildContext, ChatMessage, GrokSettings, loadChat, loadGrokSettings, saveChat } from '../../src/grok';
+import { AiSettings, askAi, buildContext, ChatMessage, loadAiSettings, loadChat, saveChat } from '../../src/ai';
 import { useGrowth } from '../../src/growthStore';
 import { useStore } from '../../src/store';
 import { useTheme } from '../../src/theme';
 
-// Grok: a coaching chat that sees the blueprint and the last week of records.
+// AI coach: a coaching chat that sees the blueprint and the last week of records.
 
 const STARTERS = ['看看我这一周，有什么模式？', '我今天在逃避什么？', '帮我把这个月的项目拆成明天能做的一步'];
 
-export default function GrokScreen() {
+export default function CoachScreen() {
   const theme = useTheme();
   const { entries } = useStore();
   const growth = useGrowth();
-  const [settings, setSettings] = useState<GrokSettings | null>(null);
+  const [settings, setSettings] = useState<AiSettings | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,7 +36,7 @@ export default function GrokScreen() {
   // Re-read on focus, since the key is entered on the 我的 page.
   useFocusEffect(
     useCallback(() => {
-      loadGrokSettings().then(setSettings);
+      loadAiSettings().then(setSettings);
     }, []),
   );
 
@@ -53,7 +53,7 @@ export default function GrokScreen() {
     setError(null);
     setBusy(true);
     try {
-      const reply = await askGrok(settings, history, buildContext(entries, growth.snapshot()));
+      const reply = await askAi(settings, history, buildContext(entries, growth.snapshot()));
       const next: ChatMessage[] = [...history, { role: 'assistant', content: reply }];
       setMessages(next);
       saveChat(next).catch(() => {});
@@ -66,7 +66,7 @@ export default function GrokScreen() {
   }
 
   async function clear() {
-    if (await confirmDestructive('清空对话？', '只会删除和 Grok 的聊天记录，打卡和成长记录不受影响。', '清空')) {
+    if (await confirmDestructive('清空对话？', '只会删除和 AI 教练的聊天记录，打卡和成长记录不受影响。', '清空')) {
       setMessages([]);
       setError(null);
       saveChat([]).catch(() => {});
@@ -78,9 +78,9 @@ export default function GrokScreen() {
   if (!settings.apiKey) {
     return (
       <View style={styles.empty}>
-        <Text style={[styles.emptyTitle, { color: theme.text }]}>连接 Grok</Text>
+        <Text style={[styles.emptyTitle, { color: theme.text }]}>连接 AI 教练</Text>
         <Text style={[styles.emptyText, { color: theme.muted }]}>
-          在「我的」页面填入你的 xAI API Key，就可以和 Grok 聊你的蓝图、每日反思和打卡记录。
+          在「我的」页面填入免费的 Gemini API Key，就可以和 AI 教练聊你的蓝图、每日反思和打卡记录。
         </Text>
         <Pressable
           style={[styles.button, { backgroundColor: theme.accent }]}
@@ -107,7 +107,7 @@ export default function GrokScreen() {
         {messages.length === 0 && (
           <View>
             <Text style={[styles.hint, { color: theme.muted }]}>
-              Grok 会看到你的人生蓝图和最近 7 天的打卡与反思。可以这样开始：
+              AI 教练会看到你的人生蓝图和最近 7 天的打卡与反思。可以这样开始：
             </Text>
             {STARTERS.map((s) => (
               <Pressable
@@ -148,7 +148,7 @@ export default function GrokScreen() {
           style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
           value={draft}
           onChangeText={setDraft}
-          placeholder="问 Grok…"
+          placeholder="问 AI 教练…"
           placeholderTextColor={theme.muted}
           multiline
         />
