@@ -13,7 +13,7 @@ import {
 import * as auth from '../../src/auth';
 import { exportBackup, readBackup } from '../../src/backup';
 import { confirmDestructive, errorMessage, notify } from '../../src/dialogs';
-import { DEFAULT_MODEL, GrokSettings, loadGrokSettings, saveGrokSettings } from '../../src/grok';
+import { AiSettings, DEFAULT_MODEL, loadAiSettings, saveAiSettings } from '../../src/ai';
 import { applyReminders, loadReminders, ReminderSettings } from '../../src/reminders';
 import { SECTIONS, SectionKey } from '../../src/sections';
 import { useGrowth } from '../../src/growthStore';
@@ -27,7 +27,7 @@ export default function SettingsScreen() {
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <SyncCard theme={theme} />
       {Platform.OS !== 'web' && <RemindersCard theme={theme} />}
-      <GrokCard theme={theme} />
+      <AiCard theme={theme} />
       <BackupCard theme={theme} />
     </ScrollView>
   );
@@ -110,13 +110,13 @@ function SyncCard({ theme }: { theme: Theme }) {
   );
 }
 
-function GrokCard({ theme }: { theme: Theme }) {
-  const [saved, setSaved] = useState<GrokSettings | null>(null);
+function AiCard({ theme }: { theme: Theme }) {
+  const [saved, setSaved] = useState<AiSettings | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
 
   useEffect(() => {
-    loadGrokSettings().then((s) => {
+    loadAiSettings().then((s) => {
       setSaved(s);
       setModel(s.model);
     });
@@ -124,8 +124,8 @@ function GrokCard({ theme }: { theme: Theme }) {
 
   if (!saved) return null;
 
-  async function save(next: GrokSettings) {
-    await saveGrokSettings(next);
+  async function save(next: AiSettings) {
+    await saveAiSettings(next);
     setSaved(next);
   }
 
@@ -133,19 +133,20 @@ function GrokCard({ theme }: { theme: Theme }) {
 
   return (
     <View style={[styles.card, { backgroundColor: theme.card }]}>
-      <Text style={[styles.cardTitle, { color: theme.text }]}>Grok</Text>
+      <Text style={[styles.cardTitle, { color: theme.text }]}>AI 教练（Gemini）</Text>
       <Text style={{ color: theme.muted, lineHeight: 20 }}>
-        填入你在 console.x.ai 创建的 API Key，就能在「Grok」页和它聊你的蓝图、反思和打卡。Key
-        只保存在这台设备上，不会同步到 Google Drive，也不会写进备份；聊天时你最近 7 天的记录会发送给 xAI。
+        在 aistudio.google.com 用 Google 账号免费创建一个 API Key，填在这里，就能在「AI」页和 AI
+        教练聊你的蓝图、反思和打卡。免费额度每天有上限。Key 只保存在这台设备上，不会同步到 Google
+        Drive，也不会写进备份；聊天时你最近 7 天的记录会发送给 Google，免费版的对话可能被 Google 用来改进模型。
       </Text>
       {saved.apiKey ? (
-        <Text style={{ color: theme.text, marginTop: 12 }}>已连接：xai-…{saved.apiKey.slice(-4)}</Text>
+        <Text style={{ color: theme.text, marginTop: 12 }}>已连接：…{saved.apiKey.slice(-4)}</Text>
       ) : (
         <TextInput
           style={inputStyle}
           value={apiKey}
           onChangeText={setApiKey}
-          placeholder="xai-…"
+          placeholder="AIza…"
           placeholderTextColor={theme.muted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -167,7 +168,7 @@ function GrokCard({ theme }: { theme: Theme }) {
         <Pressable
           style={[styles.button, styles.single, { backgroundColor: theme.empty }]}
           onPress={async () => {
-            if (await confirmDestructive('断开 Grok？', '会从这台设备删除 API Key。', '断开')) {
+            if (await confirmDestructive('断开 AI 教练？', '会从这台设备删除 API Key。', '断开')) {
               save({ ...saved, apiKey: '' });
             }
           }}
@@ -183,7 +184,7 @@ function GrokCard({ theme }: { theme: Theme }) {
             setApiKey('');
           }}
         >
-          <Text style={styles.buttonText}>连接 Grok</Text>
+          <Text style={styles.buttonText}>连接 AI 教练</Text>
         </Pressable>
       )}
     </View>

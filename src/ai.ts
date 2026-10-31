@@ -4,29 +4,32 @@ import { BOARD, CHECKS, DEEP, EVENING, GrowthData, SCORES } from './growth';
 import { SECTIONS } from './sections';
 import { Entries, entryKey } from './store';
 
-// Chat with Grok (xAI's OpenAI-compatible API). The API key is the user's own,
-// entered on the 我的 page and kept only on this device: it is never synced to
-// Google Drive or written into backups.
+// AI coach chat through the Google Gemini API, which has a free tier. The API
+// key is the user's own, made in Google AI Studio, entered on the 我的 page and
+// kept only on this device: it is never synced to Google Drive or written into
+// backups. Gemini allows calls straight from the browser, so the web version
+// needs no server of its own.
 
-export type GrokSettings = { apiKey: string; model: string };
+export type AiSettings = { apiKey: string; model: string };
 export type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
-export const DEFAULT_MODEL = 'grok-4.5';
-const API_URL = 'https://api.x.ai/v1/chat/completions';
-const SETTINGS_KEY = 'grok.settings.v1';
-const CHAT_KEY = 'grok.chat.v1';
+/** Google's alias for its newest Flash model, which is on the free tier. */
+export const DEFAULT_MODEL = 'gemini-flash-latest';
+const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const SETTINGS_KEY = 'ai.settings.v1';
+const CHAT_KEY = 'ai.chat.v1';
 /** How many past messages are sent along, so long chats stay cheap. */
 const HISTORY_LIMIT = 20;
-/** How many days of check-ins and reflections Grok sees. */
+/** How many days of check-ins and reflections the coach sees. */
 const CONTEXT_DAYS = 7;
 
-export async function loadGrokSettings(): Promise<GrokSettings> {
+export async function loadAiSettings(): Promise<AiSettings> {
   const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-  const saved = raw ? (JSON.parse(raw) as Partial<GrokSettings>) : {};
+  const saved = raw ? (JSON.parse(raw) as Partial<AiSettings>) : {};
   return { apiKey: saved.apiKey ?? '', model: saved.model || DEFAULT_MODEL };
 }
 
-export async function saveGrokSettings(settings: GrokSettings): Promise<void> {
+export async function saveAiSettings(settings: AiSettings): Promise<void> {
   await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
@@ -84,22 +87,29 @@ function systemPrompt(context: string): string {
   ].join('\n');
 }
 
-export async function askGrok(settings: GrokSettings, history: ChatMessage[], context: string): Promise<string> {
-  const res = await fetch(API_URL, {
+export async function askAi(settings: AiSettings, history: ChatMessage[], context: string): Promise<string> {
+  const url = `${API_BASE}/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.apiKey}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: settings.model,
-      messages: [{ role: 'system', content: systemPrompt(context) }, ...history.slice(-HISTORY_LIMIT)],
+      system_instruction: { parts: [{ text: systemPrompt(context) }] },
+      contents: history.slice(-HISTORY_LIMIT).map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      })),
     }),
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
-    const detail = body?.error?.message ?? body?.error ?? body?.message ?? res.statusText;
-    if (res.status === 401 || res.status === 403) throw new Error(`API Key 无效或没有权限（${detail}）`);
-    throw new Error(`Grok 返回错误 ${res.status}：${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+    const detail = body?.error?.message ?? res.statusText;
+    if (res.status === 400 && /API key/i.test(detail)) throw new Error(`API Key 无效（${detail}）`);
+    if (res.status === 403) throw new Error(`API Key 没有权限（${detail}）`);
+    if (res.status === 429) throw new Error('今天的免费额度用完了，或者发得太快，稍等一会儿再试');
+    throw new Error(`Gemini 返回错误 ${res.status}：${detail}`);
   }
-  const text = body?.choices?.[0]?.message?.content;
-  if (typeof text !== 'string' || !text.trim()) throw new Error('Grok 没有返回内容');
+  const parts: { text?: string }[] = body?.candidates?.[0]?.content?.parts ?? [];
+  const text = parts.map((p) => p.text ?? '').join('');
+  if (!text.trim()) throw new Error('Gemini 没有返回内容，换个说法再试试');
   return text.trim();
 }
