@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { addDays, todayKey } from './dates';
-import { BOARD, CHECKS, DEEP, EVENING, GrowthData, SCORES } from './growth';
+import { BOARD, CHECKS, DEEP, EVENING, GrowthData, NAVAL_ITEMS, NAVAL_NOTE, SCORES } from './growth';
 import { SECTIONS } from './sections';
 import { Entries, entryKey } from './store';
 
@@ -71,6 +71,9 @@ export function buildContext(entries: Entries, growth: GrowthData): string {
         if (a) day.push(`- ${c.q} ${a}`);
       }
       for (const s of SCORES) if (g.score[s.key]) day.push(`- 自评「${s.label}」：${g.score[s.key]}/5`);
+      const naval = NAVAL_ITEMS.filter((n) => g.naval?.[n.key]).map((n) => n.label);
+      if (naval.length) day.push(`- 纳瓦尔人生系统完成 ${naval.length}/${NAVAL_ITEMS.length}：${naval.join('；')}`);
+      if (g.notes[NAVAL_NOTE]?.trim()) day.push(`- 今天收入系统推进了：${g.notes[NAVAL_NOTE].trim()}`);
       for (const r of g.release ?? [])
         day.push(
           `- 释放练习：${r.stage}${r.feeling ? '（' + r.feeling + '）' : ''}，强度 ${r.before} → ${r.after}，${r.rounds} 轮`,

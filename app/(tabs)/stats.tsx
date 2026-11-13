@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { addDays, fromDateKey, todayKey, weekdayLabel } from '../../src/dates';
-import { averageDrop } from '../../src/growth';
+import { averageDrop, NAVAL_ITEMS, navalCount } from '../../src/growth';
 import { useGrowth } from '../../src/growthStore';
 import { SECTION_BY_KEY, SECTIONS } from '../../src/sections';
 import { currentStreak, dailyCounts, indexByDate, longestStreak, sectionStats } from '../../src/stats';
@@ -24,11 +24,16 @@ export default function StatsScreen() {
     const list = activeEntries(entries);
     const byDate = indexByDate(list);
     // A day with a release practice counts toward the streak too.
+    // So does a day with any Naval life-system item ticked.
     const releaseDays = new Set(
       Object.values(growth.days)
-        .filter((d) => d.release?.length)
+        .filter((d) => d.release?.length || navalCount(d) > 0)
         .map((d) => d.date),
     );
+    const naval = Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(today, i - 6);
+      return { date, count: navalCount(growth.days[date]) };
+    });
     const days = [...byDate.keys(), ...releaseDays];
     const release = Array.from({ length: 7 }, (_, i) => {
       const date = addDays(today, i - 6);
@@ -41,6 +46,7 @@ export default function StatsScreen() {
       streak: currentStreak((d) => byDate.has(d) || releaseDays.has(d), today),
       best: longestStreak(days),
       release,
+      naval,
       releaseTotal: releaseSessions.length,
       releaseDrop: averageDrop(releaseSessions),
       week: dailyCounts(byDate, today, 7),
@@ -59,6 +65,14 @@ export default function StatsScreen() {
 
       <Card theme={theme} title="最近 7 天">
         <WeekChart theme={theme} width={chartWidth} days={data.week} />
+      </Card>
+
+      <Card theme={theme} title="纳瓦尔人生系统 · 最近 7 天">
+        <Text style={[styles.releaseSummary, { color: theme.muted }]}>
+          今天 {data.naval[6].count} / {NAVAL_ITEMS.length} · 7 天平均{' '}
+          {formatDrop(data.naval.reduce((a, d) => a + d.count, 0) / 7)} / {NAVAL_ITEMS.length}
+        </Text>
+        <NavalTrend theme={theme} width={chartWidth} days={data.naval} />
       </Card>
 
       <Card theme={theme} title="释放练习 · 最近 7 天">
@@ -198,6 +212,50 @@ function ReleaseChart({
             </SvgText>
             <SvgText x={x + barW / 2} y={height - 4} fontSize={10} fill={theme.accent} textAnchor="middle">
               {d.drop !== null ? `降${formatDrop(d.drop)}` : ''}
+            </SvgText>
+          </React.Fragment>
+        );
+      })}
+    </Svg>
+  );
+}
+
+/** Daily Naval checklist count out of 10, as a line over the last 7 days. */
+function NavalTrend({ theme, width, days }: { theme: Theme; width: number; days: { date: string; count: number }[] }) {
+  const height = 150;
+  const top = 18;
+  const bottom = 30;
+  const plotH = height - top - bottom;
+  const max = NAVAL_ITEMS.length;
+  const slot = width / days.length;
+  const pts = days.map((d, i) => ({ x: i * slot + slot / 2, y: top + plotH - (d.count / max) * plotH, ...d }));
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+  const area = `${line} L${pts[pts.length - 1].x} ${top + plotH} L${pts[0].x} ${top + plotH} Z`;
+  return (
+    <Svg width={width} height={height}>
+      {[0, 5, 10].map((v) => {
+        const y = top + plotH - (v / max) * plotH;
+        return <Line key={v} x1={0} x2={width} y1={y} y2={y} stroke={theme.empty} strokeWidth={1} />;
+      })}
+      <Path d={area} fill={theme.accent} fillOpacity={0.12} />
+      <Path d={line} stroke={theme.accent} strokeWidth={2.5} fill="none" strokeLinejoin="round" />
+      {pts.map((p, i) => {
+        const isToday = i === pts.length - 1;
+        return (
+          <React.Fragment key={p.date}>
+            <Circle cx={p.x} cy={p.y} r={isToday ? 5 : 3.5} fill={theme.card} stroke={theme.accent} strokeWidth={2} />
+            <SvgText x={p.x} y={p.y - 9} fontSize={11} fill={theme.muted} textAnchor="middle">
+              {String(p.count)}
+            </SvgText>
+            <SvgText
+              x={p.x}
+              y={height - 4}
+              fontSize={12}
+              fill={isToday ? theme.text : theme.muted}
+              fontWeight={isToday ? '700' : '400'}
+              textAnchor="middle"
+            >
+              {isToday ? '今' : weekdayLabel(p.date)}
             </SvgText>
           </React.Fragment>
         );
