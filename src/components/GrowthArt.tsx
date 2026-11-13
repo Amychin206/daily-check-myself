@@ -6,7 +6,7 @@ import { Anim, Sparkle, Twinkle } from './SectionArt';
 // Banner illustrations for the cards on the 成长 tab, drawn on a 400x150
 // canvas. Each has a soft dark fade along the bottom so a title can sit on it.
 
-export type GrowthArtKind = 'morning' | 'levers' | 'day' | 'score' | 'evening' | 'board' | 'deep' | 'read';
+export type GrowthArtKind = 'morning' | 'levers' | 'release' | 'day' | 'score' | 'evening' | 'board' | 'deep' | 'read';
 
 type Props = { kind: GrowthArtKind; style?: StyleProp<ViewStyle> };
 
@@ -344,9 +344,44 @@ function Read({ u }: SceneProps) {
   );
 }
 
+/** Still water with ripples spreading out and a feather drifting down: letting go. */
+function Release({ u }: SceneProps) {
+  return (
+    <G>
+      <Sky
+        u={u}
+        id="sky"
+        stops={[
+          ['0', '#BFD3FF'],
+          ['0.55', '#DCE7FF'],
+          ['1', '#F4F7FF'],
+        ]}
+      />
+      <Anim period={8} scale={0.08} origin={[90, 46]} fade={[0.5, 0.85]}>
+        <Circle cx="90" cy="46" r="34" fill="#FFFFFF" opacity="0.6" />
+      </Anim>
+      <Circle cx="90" cy="46" r="16" fill="#FFFFFF" />
+      <Path d="M0 96 C80 88 150 98 230 92 C300 87 350 94 400 90 L400 150 L0 150 Z" fill="#8FB0F5" />
+      <Path d="M0 112 C90 104 190 116 280 108 C340 103 370 108 400 106 L400 150 L0 150 Z" fill="#6E92E8" />
+      {[0, 0.33, 0.66].map((phase) => (
+        <Anim key={phase} period={4.5} phase={phase} scale={0.45} origin={[270, 118]} fade={[0, 0.7]}>
+          <Ellipse cx="270" cy="118" rx="44" ry="9" stroke="#FFFFFF" strokeWidth="2" fill="none" />
+        </Anim>
+      ))}
+      <Anim period={7} dx={26} dy={10} rotate={14} origin={[262, 56]}>
+        <Path d="M248 70 C252 52 266 40 282 36 C278 52 266 64 248 70 Z" fill="#FFFFFF" opacity="0.95" />
+        <Path d="M248 70 L276 42" stroke="#9DB6F2" strokeWidth="1.5" strokeLinecap="round" />
+      </Anim>
+      <Twinkle x={180} y={32} r={4} color="#FFFFFF" phase={0.2} />
+      <Twinkle x={350} y={24} r={5} color="#FFFFFF" phase={0.6} />
+    </G>
+  );
+}
+
 const SCENES: Record<GrowthArtKind, (props: SceneProps) => React.JSX.Element> = {
   morning: Morning,
   levers: Levers,
+  release: Release,
   day: Day,
   score: Score,
   evening: Evening,

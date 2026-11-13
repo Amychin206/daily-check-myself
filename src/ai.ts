@@ -71,6 +71,10 @@ export function buildContext(entries: Entries, growth: GrowthData): string {
         if (a) day.push(`- ${c.q} ${a}`);
       }
       for (const s of SCORES) if (g.score[s.key]) day.push(`- 自评「${s.label}」：${g.score[s.key]}/5`);
+      for (const r of g.release ?? [])
+        day.push(
+          `- 释放练习：${r.stage}${r.feeling ? '（' + r.feeling + '）' : ''}，强度 ${r.before} → ${r.after}，${r.rounds} 轮`,
+        );
     }
     if (day.length) lines.push(`【${date}${date === today ? ' 今天' : ''}】`, ...day);
   }

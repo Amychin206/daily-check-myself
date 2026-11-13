@@ -19,12 +19,29 @@ export default function RootLayout() {
   // Tapping a reminder opens today's check-in for that section, or the 成长 tab.
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const handled = new Set<string>();
+    const open = (response: Notifications.NotificationResponse | null) => {
+      if (!response) return;
+      const id = response.notification.request.identifier + response.notification.date;
+      if (handled.has(id)) return;
+      handled.add(id);
       const data = response.notification.request.content.data;
-      if (data?.growth) router.navigate('/growth');
+      if (data?.growth) {
+        // `at` changes each time so tapping the same reminder again still scrolls to its card.
+        if (typeof data.card === 'string')
+          router.navigate({ pathname: '/growth', params: { card: data.card, at: Date.now() } });
+        else router.navigate('/growth');
+      }
       const section = data?.section;
       if (isSectionKey(section)) router.push({ pathname: '/entry/[section]', params: { section, date: todayKey() } });
-    });
+    };
+    // A tap that launched the app from closed arrives before this listener exists.
+    const launch = Notifications.getLastNotificationResponse();
+    if (launch) {
+      Notifications.clearLastNotificationResponse();
+      setTimeout(() => open(launch), 500); // let the navigator mount first
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
     return () => sub.remove();
   }, []);
 
