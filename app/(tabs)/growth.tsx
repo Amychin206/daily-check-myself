@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { GrowthArt, GrowthArtKind } from '../../src/components/GrowthArt';
+import { NavalChecklist } from '../../src/components/NavalChecklist';
 import { clock, ReleasePractice } from '../../src/components/ReleasePractice';
 import { addDays, formatDateLabel, todayKey } from '../../src/dates';
 import { notify } from '../../src/dialogs';
@@ -26,6 +27,10 @@ import {
   GAME_NOTE,
   GAME_TABLE,
   GrowthDay,
+  NAVAL_FORMULAS,
+  NAVAL_ITEMS,
+  NAVAL_NOTE,
+  navalCount,
   READING,
   SCORES,
   SUMMARY,
@@ -119,7 +124,9 @@ function hasContent(day: GrowthDay | undefined): boolean {
     (answeredCount(day) > 0 ||
       day.done.some(Boolean) ||
       Object.keys(day.score).length > 0 ||
-      (day.release?.length ?? 0) > 0)
+      (day.release?.length ?? 0) > 0 ||
+      navalCount(day) > 0 ||
+      !!day.notes[NAVAL_NOTE]?.trim())
   );
 }
 
@@ -255,6 +262,10 @@ function TodayView({
             />
           </View>
         ))}
+      </Card>
+
+      <Card theme={theme} art="naval" title="纳瓦尔人生系统 · 今日打卡">
+        <NavalChecklist theme={theme} date={date} />
       </Card>
 
       <View onLayout={(e) => onReleaseLayout(e.nativeEvent.layout.y)}>
@@ -447,6 +458,7 @@ function HistoryView({ theme }: { theme: Theme }) {
               <Text style={{ color: theme.muted, fontSize: 13 }}>
                 反思 {answeredCount(d)}/7 · 完成 {done} 件{avg !== null ? ` · 自检 ${avg.toFixed(1)}` : ''}
                 {d.release?.length ? ` · 释放 ${d.release.length} 次` : ''}
+                {navalCount(d) ? ` · 纳瓦尔 ${navalCount(d)}/${NAVAL_ITEMS.length}` : ''}
               </Text>
             </Pressable>
             {isOpen && <DayDetail theme={theme} day={d} />}
@@ -469,6 +481,9 @@ function DayDetail({ theme, day }: { theme: Theme; day: GrowthDay }) {
   for (const s of SCORES) {
     if (day.score[s.key]) items.push([s.label, `${day.score[s.key]} / 5`]);
   }
+  const naval = NAVAL_ITEMS.filter((n) => day.naval?.[n.key]).map((n) => n.label);
+  if (naval.length) items.push([`纳瓦尔人生系统 ${naval.length}/${NAVAL_ITEMS.length}`, naval.join('\n')]);
+  if (day.notes[NAVAL_NOTE]?.trim()) items.push(['今天收入系统推进了什么', day.notes[NAVAL_NOTE].trim()]);
   for (const r of day.release ?? []) {
     const rounds = r.rounds > 1 ? ` · ${r.rounds} 轮` : '';
     items.push([
@@ -534,6 +549,17 @@ function ReadView({ theme }: { theme: Theme }) {
       <View style={[styles.card, { backgroundColor: VISION.bg }]}>
         <Rich text={'**一句话总结：**' + SUMMARY} color={theme.text} />
       </View>
+      <Card theme={theme} art="naval" title="纳瓦尔的人生系统">
+        <Text style={[styles.hint, { color: theme.muted }]}>每天的勾选在「今天」页的纳瓦尔卡片。</Text>
+        <View style={[styles.table, { backgroundColor: theme.bg }]}>
+          {NAVAL_FORMULAS.map(([k, v]) => (
+            <View key={k} style={styles.tableRow}>
+              <Text style={[styles.tableKey, { color: theme.accent }]}>{k}</Text>
+              <Text style={{ color: theme.text, flex: 1 }}>= {v}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
     </>
   );
 }

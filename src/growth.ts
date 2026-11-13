@@ -27,6 +27,8 @@ export type GrowthDay = {
   score: Record<string, number>;
   /** Sedona release sessions finished this day, oldest first. Missing on older data. */
   release?: ReleaseSession[];
+  /** Naval life-system checklist: item key -> checked. Missing on older data. */
+  naval?: Record<string, boolean>;
   updatedAt: string;
 };
 
@@ -101,6 +103,53 @@ export function averageDrop(sessions: ReleaseSession[] | undefined): number | nu
   if (!sessions?.length) return null;
   return sessions.reduce((sum, s) => sum + releaseDrop(s), 0) / sessions.length;
 }
+
+/** The Naval life-system daily checklist, built from the bottom up: health first, then income. */
+export const NAVAL_GROUPS: { title: string; items: { key: string; label: string; sub?: string }[] }[] = [
+  {
+    title: '一、健康 · 先守住',
+    items: [
+      { key: 'n1', label: '锻炼：力量训练或体育运动', sub: '高强度力量训练 + 运动 练完记得休息恢复' },
+      { key: 'n2', label: '饮食：天然食物为主 多吃植物', sub: '少加工食品' },
+      { key: 'n3', label: '饮食：守住进食窗口（可选）', sub: '间歇性禁食 身体状况不适合就跳过' },
+      { key: 'n4', label: '睡眠：睡够 8～9 小时' },
+      { key: 'n5', label: '睡眠：自然醒 作息跟着昼夜走', sub: '不靠闹钟 早睡早起 白天多见光' },
+    ],
+  },
+  {
+    title: '二、收入系统 · 责任 + 杠杆 + 专长',
+    items: [
+      { key: 'n6', label: '专长：练了一项培训学不来的能力', sub: '例如理赔判断 风险分析 遗嘱规划经验的沉淀' },
+      { key: 'n7', label: '杠杆：做了一件能被复制放大的事', sub: '资本 人力 带团队 知识产权 内容 模板 工具' },
+      { key: 'n8', label: '责任：用自己的名字公开承担一件事', sub: '个人品牌 个人平台 承担风险' },
+    ],
+  },
+  {
+    title: '三、财富与关系',
+    items: [
+      { key: 'n9', label: '投资：没有冲动操作 守住长期持有', sub: '出手前看估值 留安全边际' },
+      { key: 'n10', label: '关系：用心联系了一个重要的人' },
+    ],
+  },
+];
+
+export const NAVAL_ITEMS = NAVAL_GROUPS.flatMap((g) => g.items);
+
+/** Key in GrowthDay.notes for "今天收入系统推进了什么". */
+export const NAVAL_NOTE = 'naval';
+
+export function navalCount(day: GrowthDay | undefined): number {
+  return NAVAL_ITEMS.filter((i) => day?.naval?.[i.key]).length;
+}
+
+/** Naval's formulas, shown as a table on the 成长 tab. */
+export const NAVAL_FORMULAS: [string, string][] = [
+  ['幸福', '健康 + 财富 + 良好的人际关系'],
+  ['财富', '收入 + 财富 × 投资回报率'],
+  ['投资', '买入并持有 + 估值 + 安全边际'],
+  ['收入', '责任 + 杠杆 + 专长'],
+  ['健康', '锻炼 + 饮食 + 睡眠'],
+];
 
 export const EVENING = [
   { key: 'e1', q: '今天最真实的一个发现是什么？' },

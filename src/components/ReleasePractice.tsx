@@ -1,18 +1,7 @@
 import { ArrowRight, Check, EyeClosed, Feather, RotateCcw } from 'lucide-react-native';
-import { ReactNode, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  LayoutAnimation,
-  Platform,
-  Pressable,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { ReactNode, useRef, useState } from 'react';
+import { Appear, PressScale } from './Motion';
+import { Animated, Easing, LayoutAnimation, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { todayKey } from '../dates';
 import { RELEASE_QUESTIONS, RELEASE_STAGES, ReleaseSession } from '../growth';
 import { useGrowth } from '../growthStore';
@@ -31,55 +20,6 @@ const STEP_NUMBER: Record<Step['kind'], number> = { setup: 1, feel: 2, ask: 3, c
 /** Smoothly resizes the card when the next step is taller or shorter. */
 function morphLayout() {
   if (NATIVE) LayoutAnimation.configureNext(LayoutAnimation.create(260, 'easeInEaseOut', 'opacity'));
-}
-
-/** A pressable that dips slightly while held. */
-export function PressScale({
-  onPress,
-  disabled,
-  style,
-  grow,
-  children,
-}: {
-  onPress: () => void;
-  disabled?: boolean;
-  style?: StyleProp<ViewStyle>;
-  /** Share the row's width with siblings. */
-  grow?: boolean;
-  children: ReactNode;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const to = (toValue: number) =>
-    Animated.spring(scale, { toValue, speed: 40, bounciness: 8, useNativeDriver: NATIVE }).start();
-  return (
-    <Pressable
-      style={grow && { flex: 1 }}
-      onPress={onPress}
-      disabled={disabled}
-      onPressIn={() => to(0.93)}
-      onPressOut={() => to(1)}
-    >
-      <Animated.View style={[style, { transform: [{ scale }] }, disabled && { opacity: 0.4 }]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-/** Fades and slides its children in when first shown. */
-function Appear({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
-  const v = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(v, {
-      toValue: 1,
-      duration: 320,
-      delay,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: NATIVE,
-    }).start();
-  }, [v, delay]);
-  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [8, 0] });
-  return <Animated.View style={{ opacity: v, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 
 function Scale({ theme, value, onChange }: { theme: Theme; value: number | null; onChange: (v: number) => void }) {

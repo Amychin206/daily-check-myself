@@ -6,7 +6,8 @@ import { Anim, Sparkle, Twinkle } from './SectionArt';
 // Banner illustrations for the cards on the 成长 tab, drawn on a 400x150
 // canvas. Each has a soft dark fade along the bottom so a title can sit on it.
 
-export type GrowthArtKind = 'morning' | 'levers' | 'release' | 'day' | 'score' | 'evening' | 'board' | 'deep' | 'read';
+export type GrowthArtKind =
+  'morning' | 'levers' | 'naval' | 'release' | 'day' | 'score' | 'evening' | 'board' | 'deep' | 'read';
 
 type Props = { kind: GrowthArtKind; style?: StyleProp<ViewStyle> };
 
@@ -344,6 +345,41 @@ function Read({ u }: SceneProps) {
   );
 }
 
+/** Three stacked blocks, built from the bottom up: health, income, wealth & relationships. */
+function Naval({ u }: SceneProps) {
+  return (
+    <G>
+      <Sky
+        u={u}
+        id="sky"
+        stops={[
+          ['0', '#CFE0FF'],
+          ['0.6', '#E8F0FF'],
+          ['1', '#FFFFFF'],
+        ]}
+      />
+      <Anim period={7} scale={0.1} origin={[330, 44]} fade={[0.5, 0.9]}>
+        <Circle cx="330" cy="44" r="30" fill="#FFFFFF" opacity="0.7" />
+      </Anim>
+      <Circle cx="330" cy="44" r="15" fill="#FFD36E" />
+      <Rect y="124" width="400" height="26" fill="#9DB8F2" />
+      <Rect x="118" y="104" width="164" height="22" rx="4" fill="#2F5BD8" />
+      <Anim period={5} dy={-2}>
+        <Rect x="142" y="82" width="116" height="22" rx="4" fill="#4F7CFF" />
+      </Anim>
+      <Anim period={5} phase={0.2} dy={-4}>
+        <Rect x="166" y="60" width="68" height="22" rx="4" fill="#8FB0FF" />
+        <Path d="M200 60 V34" stroke="#1C1E26" strokeWidth="2" />
+        <Anim period={2.6} rotate={10} origin={[200, 34]}>
+          <Polygon points="200,34 222,40 200,46" fill="#E5484D" />
+        </Anim>
+      </Anim>
+      <Twinkle x={84} y={40} r={5} color="#FFFFFF" />
+      <Twinkle x={262} y={28} r={4} color="#FFFFFF" phase={0.5} />
+    </G>
+  );
+}
+
 /** Still water with ripples spreading out and a feather drifting down: letting go. */
 function Release({ u }: SceneProps) {
   return (
@@ -381,6 +417,7 @@ function Release({ u }: SceneProps) {
 const SCENES: Record<GrowthArtKind, (props: SceneProps) => React.JSX.Element> = {
   morning: Morning,
   levers: Levers,
+  naval: Naval,
   release: Release,
   day: Day,
   score: Score,
