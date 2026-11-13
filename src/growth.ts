@@ -25,7 +25,19 @@ export type GrowthDay = {
   notes: Record<string, string>;
   /** Self-scores from 1 to 5, by score key. */
   score: Record<string, number>;
+  /** Sedona release sessions finished this day, oldest first. Missing on older data. */
+  release?: ReleaseSession[];
   updatedAt: string;
+};
+
+/** One run through the Sedona release practice. */
+export type ReleaseSession = {
+  at: string; // ISO timestamp of when it was recorded
+  stage: string; // one of RELEASE_STAGES
+  feeling: string;
+  before: number; // intensity 0-10 at the start
+  after: number; // intensity 0-10 at the end
+  rounds: number;
 };
 
 export type GrowthData = { blueprint: Blueprint | null; days: Record<string, GrowthDay> };
@@ -64,6 +76,31 @@ export const DAY_REMINDERS = [
   { hour: 8, minute: 0, title: '☀️ 早安', body: '看一眼愿景，定下今天 3 件事' },
   { hour: 21, minute: 30, title: '🌙 睡前 3 分钟', body: '打个分，写下今天的发现' },
 ];
+
+/** Emotional stages for the release practice, from heaviest to lightest. */
+export const RELEASE_STAGES = ['万念俱灰', '悲苦', '恐惧', '贪求', '愤怒', '骄傲', '无畏', '接纳', '平静'];
+
+export const RELEASE_QUESTIONS = [
+  { q: '你能不能放手让这种情绪离开？', answers: ['可以', '不可以'] },
+  { q: '你愿不愿意放手让这种情绪离开？', answers: ['愿意', '不愿意'] },
+  { q: '你什么时候放手让这种情绪离开？', answers: ['现在', '还没准备好'] },
+];
+
+/** Daily release reminders; tapping one opens the release card. */
+export const RELEASE_REMINDERS = [
+  { hour: 12, minute: 30 },
+  { hour: 21, minute: 0 },
+];
+
+export function releaseDrop(s: ReleaseSession): number {
+  return s.before - s.after;
+}
+
+/** Average drop in intensity across a day's sessions, or null if there were none. */
+export function averageDrop(sessions: ReleaseSession[] | undefined): number | null {
+  if (!sessions?.length) return null;
+  return sessions.reduce((sum, s) => sum + releaseDrop(s), 0) / sessions.length;
+}
 
 export const EVENING = [
   { key: 'e1', q: '今天最真实的一个发现是什么？' },

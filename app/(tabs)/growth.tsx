@@ -1,6 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  ScrollViewInstance,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { GrowthArt, GrowthArtKind } from '../../src/components/GrowthArt';
+import { clock, ReleasePractice } from '../../src/components/ReleasePractice';
 import { addDays, formatDateLabel, todayKey } from '../../src/dates';
 import { notify } from '../../src/dialogs';
 import {
@@ -44,8 +56,26 @@ export default function GrowthScreen() {
   const today = todayKey();
   const streak = practiceStreak(data.days, today);
 
+  // A release reminder opens this tab with ?card=release: show 今天 and scroll to that card.
+  const { card, at } = useLocalSearchParams<{ card?: string; at?: string }>();
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const releaseY = useRef<number | null>(null);
+  const pendingScroll = useRef(false);
+  const scrollToRelease = () => {
+    if (releaseY.current === null) return;
+    pendingScroll.current = false;
+    scrollRef.current?.scrollTo({ y: Math.max(0, releaseY.current - 8), animated: true });
+  };
+  useEffect(() => {
+    if (card !== 'release') return;
+    pendingScroll.current = true;
+    setView('today');
+    const t = setTimeout(scrollToRelease, 350);
+    return () => clearTimeout(t);
+  }, [card, at]);
+
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <Text style={[styles.date, { color: theme.muted }]}>{formatDateLabel(today)}</Text>
         {streak > 0 && <Text style={styles.streak}>连续练习 {streak} 天</Text>}
@@ -65,7 +95,17 @@ export default function GrowthScreen() {
           </Pressable>
         ))}
       </View>
-      {view === 'today' && <TodayView theme={theme} date={today} onOpenBoard={() => setView('board')} />}
+      {view === 'today' && (
+        <TodayView
+          theme={theme}
+          date={today}
+          onOpenBoard={() => setView('board')}
+          onReleaseLayout={(y) => {
+            releaseY.current = y;
+            if (pendingScroll.current) scrollToRelease();
+          }}
+        />
+      )}
       {view === 'board' && <BoardView theme={theme} />}
       {view === 'history' && <HistoryView theme={theme} />}
       {view === 'read' && <ReadView theme={theme} />}
@@ -74,7 +114,13 @@ export default function GrowthScreen() {
 }
 
 function hasContent(day: GrowthDay | undefined): boolean {
-  return !!day && (answeredCount(day) > 0 || day.done.some(Boolean) || Object.keys(day.score).length > 0);
+  return (
+    !!day &&
+    (answeredCount(day) > 0 ||
+      day.done.some(Boolean) ||
+      Object.keys(day.score).length > 0 ||
+      (day.release?.length ?? 0) > 0)
+  );
 }
 
 /** Consecutive days with something written, counting back from today (or yesterday if today is still empty). */
@@ -147,7 +193,17 @@ function Field({
   );
 }
 
-function TodayView({ theme, date, onOpenBoard }: { theme: Theme; date: string; onOpenBoard: () => void }) {
+function TodayView({
+  theme,
+  date,
+  onOpenBoard,
+  onReleaseLayout,
+}: {
+  theme: Theme;
+  date: string;
+  onOpenBoard: () => void;
+  onReleaseLayout: (y: number) => void;
+}) {
   const { data, getDay, updateDay } = useGrowth();
   const day = getDay(date);
   const bp = data.blueprint;
@@ -200,6 +256,12 @@ function TodayView({ theme, date, onOpenBoard }: { theme: Theme; date: string; o
           </View>
         ))}
       </Card>
+
+      <View onLayout={(e) => onReleaseLayout(e.nativeEvent.layout.y)}>
+        <Card theme={theme} art="release" title="释放练习 · 圣多纳释放法" hint="情绪上来时，跟着一步步感受、放手。">
+          <ReleasePractice theme={theme} />
+        </Card>
+      </View>
 
       <Card theme={theme} art="day" title="白天 · 打断自动驾驶" hint="到点停一下，写一句就好。">
         {Platform.OS !== 'web' && <GrowthReminderSwitch theme={theme} />}
@@ -289,7 +351,9 @@ function GrowthReminderSwitch({ theme }: { theme: Theme }) {
   if (on === null) return null;
   return (
     <View style={[styles.reminderRow, { backgroundColor: theme.bg }]}>
-      <Text style={{ color: theme.text, flex: 1 }}>到点提醒我（早上 8:00、白天 4 次、睡前 21:30）</Text>
+      <Text style={{ color: theme.text, flex: 1 }}>
+        到点提醒我（早上 8:00、白天 4 次、释放练习 12:30 和 21:00、睡前 21:30）
+      </Text>
       <Switch
         value={on}
         onValueChange={async (next) => {
@@ -382,6 +446,7 @@ function HistoryView({ theme }: { theme: Theme }) {
               <Text style={{ color: theme.text, fontWeight: '600' }}>{formatDateLabel(d.date)}</Text>
               <Text style={{ color: theme.muted, fontSize: 13 }}>
                 反思 {answeredCount(d)}/7 · 完成 {done} 件{avg !== null ? ` · 自检 ${avg.toFixed(1)}` : ''}
+                {d.release?.length ? ` · 释放 ${d.release.length} 次` : ''}
               </Text>
             </Pressable>
             {isOpen && <DayDetail theme={theme} day={d} />}
@@ -403,6 +468,13 @@ function DayDetail({ theme, day }: { theme: Theme; day: GrowthDay }) {
   }
   for (const s of SCORES) {
     if (day.score[s.key]) items.push([s.label, `${day.score[s.key]} / 5`]);
+  }
+  for (const r of day.release ?? []) {
+    const rounds = r.rounds > 1 ? ` · ${r.rounds} 轮` : '';
+    items.push([
+      `释放练习 ${clock(r.at)}`,
+      `${r.stage}${r.feeling ? ' · ' + r.feeling : ''} · ${r.before} → ${r.after}${rounds}`,
+    ]);
   }
   return (
     <View style={[styles.detail, { backgroundColor: theme.bg }]}>

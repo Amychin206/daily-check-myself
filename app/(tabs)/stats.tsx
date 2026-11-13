@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 import { addDays, fromDateKey, todayKey, weekdayLabel } from '../../src/dates';
+import { averageDrop } from '../../src/growth';
+import { useGrowth } from '../../src/growthStore';
 import { SECTION_BY_KEY, SECTIONS } from '../../src/sections';
 import { currentStreak, dailyCounts, indexByDate, longestStreak, sectionStats } from '../../src/stats';
 import { activeEntries, useStore } from '../../src/store';
@@ -13,6 +15,7 @@ const PAD = 16;
 export default function StatsScreen() {
   const theme = useTheme();
   const { entries } = useStore();
+  const { data: growth } = useGrowth();
   const { width } = useWindowDimensions();
   const chartWidth = Math.min(width, MAX_WIDTH) - PAD * 2 - 32;
   const today = todayKey();
@@ -20,16 +23,31 @@ export default function StatsScreen() {
   const data = useMemo(() => {
     const list = activeEntries(entries);
     const byDate = indexByDate(list);
-    const days = [...byDate.keys()];
+    // A day with a release practice counts toward the streak too.
+    const releaseDays = new Set(
+      Object.values(growth.days)
+        .filter((d) => d.release?.length)
+        .map((d) => d.date),
+    );
+    const days = [...byDate.keys(), ...releaseDays];
+    const release = Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(today, i - 6);
+      const sessions = growth.days[date]?.release ?? [];
+      return { date, count: sessions.length, drop: averageDrop(sessions) };
+    });
+    const releaseSessions = release.flatMap((d) => growth.days[d.date]?.release ?? []);
     return {
       total: list.length,
-      streak: currentStreak((d) => byDate.has(d), today),
+      streak: currentStreak((d) => byDate.has(d) || releaseDays.has(d), today),
       best: longestStreak(days),
+      release,
+      releaseTotal: releaseSessions.length,
+      releaseDrop: averageDrop(releaseSessions),
       week: dailyCounts(byDate, today, 7),
       heat: dailyCounts(byDate, today, WEEKS * 7),
       sections: sectionStats(byDate, today),
     };
-  }, [entries, today]);
+  }, [entries, growth, today]);
 
   return (
     <ScrollView contentContainerStyle={{ padding: PAD, paddingBottom: 32 }}>
@@ -41,6 +59,13 @@ export default function StatsScreen() {
 
       <Card theme={theme} title="最近 7 天">
         <WeekChart theme={theme} width={chartWidth} days={data.week} />
+      </Card>
+
+      <Card theme={theme} title="释放练习 · 最近 7 天">
+        <Text style={[styles.releaseSummary, { color: theme.muted }]}>
+          共 {data.releaseTotal} 次{data.releaseDrop !== null ? ` · 平均降幅 ${formatDrop(data.releaseDrop)}` : ''}
+        </Text>
+        <ReleaseChart theme={theme} width={chartWidth} days={data.release} />
       </Card>
 
       <Card theme={theme} title={`最近 ${WEEKS} 周`}>
@@ -128,6 +153,59 @@ function WeekChart({ theme, width, days }: { theme: Theme; width: number; days: 
   );
 }
 
+const formatDrop = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+
+/** Release sessions per day as bars, with each day's average drop in intensity underneath. */
+function ReleaseChart({
+  theme,
+  width,
+  days,
+}: {
+  theme: Theme;
+  width: number;
+  days: { date: string; count: number; drop: number | null }[];
+}) {
+  const height = 168;
+  const labelH = 38;
+  const valueH = 16;
+  const plotH = height - labelH - valueH;
+  const slot = width / days.length;
+  const barW = Math.min(28, slot * 0.6);
+  const max = Math.max(3, ...days.map((d) => d.count));
+  return (
+    <Svg width={width} height={height}>
+      {days.map((d, i) => {
+        const h = Math.max(2, (d.count / max) * plotH);
+        const x = i * slot + (slot - barW) / 2;
+        const y = valueH + plotH - h;
+        const isToday = i === days.length - 1;
+        return (
+          <React.Fragment key={d.date}>
+            <Rect x={x} y={valueH} width={barW} height={plotH} rx={4} fill={theme.empty} />
+            <Rect x={x} y={y} width={barW} height={h} rx={4} fill={d.count ? theme.accent : 'transparent'} />
+            <SvgText x={x + barW / 2} y={y - 4} fontSize={11} fill={theme.muted} textAnchor="middle">
+              {d.count ? String(d.count) : ''}
+            </SvgText>
+            <SvgText
+              x={x + barW / 2}
+              y={height - 22}
+              fontSize={12}
+              fill={isToday ? theme.text : theme.muted}
+              fontWeight={isToday ? '700' : '400'}
+              textAnchor="middle"
+            >
+              {isToday ? '今' : weekdayLabel(d.date)}
+            </SvgText>
+            <SvgText x={x + barW / 2} y={height - 4} fontSize={10} fill={theme.accent} textAnchor="middle">
+              {d.drop !== null ? `降${formatDrop(d.drop)}` : ''}
+            </SvgText>
+          </React.Fragment>
+        );
+      })}
+    </Svg>
+  );
+}
+
 function Heatmap({ theme, width, days }: { theme: Theme; width: number; days: { date: string; count: number }[] }) {
   const labelW = 18;
   const gap = 3;
@@ -205,6 +283,7 @@ const styles = StyleSheet.create({
   rateFill: { height: 10, borderRadius: 5 },
   rateText: { width: 44, textAlign: 'right', fontSize: 13, fontVariant: ['tabular-nums'] },
   streakText: { width: 40, textAlign: 'right', fontSize: 12 },
+  releaseSummary: { fontSize: 13, marginTop: -6, marginBottom: 10 },
   legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 8 },
   legendCell: { width: 12, height: 12, borderRadius: 3 },
 });

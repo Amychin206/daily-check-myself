@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { CHECKS, DAY_REMINDERS } from './growth';
+import { CHECKS, DAY_REMINDERS, RELEASE_REMINDERS } from './growth';
 import { SECTION_BY_KEY, SectionKey, SECTIONS } from './sections';
 
 // Reminders are local notifications, so they are configured per device.
@@ -32,7 +32,7 @@ export async function loadReminders(): Promise<ReminderSettings> {
   return { ...defaultReminders(), ...(raw ? JSON.parse(raw) : {}) };
 }
 
-/** Whether the 成长 tab sends its reminders (morning, four check-ins, bedtime). */
+/** Whether the 成长 tab sends its reminders (morning, four check-ins, two release practices, bedtime). */
 export async function loadGrowthReminders(): Promise<boolean> {
   return (await AsyncStorage.getItem(GROWTH_KEY)) === 'on';
 }
@@ -94,13 +94,20 @@ export async function applyReminders(settings: ReminderSettings): Promise<boolea
     });
   }
   if (growthOn) {
-    const growthReminders = [
+    const growthReminders: { hour: number; minute: number; title: string; body: string; card?: string }[] = [
       ...DAY_REMINDERS,
       ...CHECKS.map((c) => ({ hour: c.hour, minute: c.minute, title: '🌱 停一下', body: c.short })),
+      ...RELEASE_REMINDERS.map(({ hour, minute }) => ({
+        hour,
+        minute,
+        title: '释放练习',
+        body: '停两分钟，感受此刻的情绪，再放手让它离开',
+        card: 'release',
+      })),
     ];
-    for (const { hour, minute, title, body } of growthReminders) {
+    for (const { hour, minute, title, body, card } of growthReminders) {
       await Notifications.scheduleNotificationAsync({
-        content: { title, body, data: { growth: true } },
+        content: { title, body, data: card ? { growth: true, card } : { growth: true } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, channelId: 'reminders' },
       });
     }
